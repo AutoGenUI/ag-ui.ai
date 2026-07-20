@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run security:audit
+      - run: npm run content:validate
+      - run: npm test
+      - run: npm run lint
+      - run: npm run build
+      - run: npm run check:bundle
+      - run: npm run test:render
+      - name: Check links
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: --no-progress --exclude-path node_modules --exclude-path dist --exclude 'localhost|github.com/AutoGenUI/ag-ui.ai' './**/*.md' './content/**/*.md'
+          fail: true

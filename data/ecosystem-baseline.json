@@ -1,0 +1,18 @@
+{
+  "verifiedAt": "2026-07-20",
+  "repositories": [
+    { "repo": "ag-ui-protocol/ag-ui", "defaultBranch": "main", "license": "MIT", "latestRelease": "release/2026-07-15" },
+    { "repo": "a2ui-project/a2ui", "defaultBranch": "main", "license": "Apache-2.0", "latestRelease": null },
+    { "repo": "thesysdev/openui", "defaultBranch": "main", "license": "MIT", "latestRelease": null },
+    { "repo": "vercel-labs/json-render", "defaultBranch": "main", "license": "Apache-2.0", "latestRelease": "v0.19.0" },
+    { "repo": "CopilotKit/CopilotKit", "defaultBranch": "main", "license": "MIT", "latestRelease": "channels/v0.2.1" },
+    { "repo": "CopilotKit/generative-ui", "defaultBranch": "main", "license": null, "latestRelease": null },
+    { "repo": "modelcontextprotocol/ext-apps", "defaultBranch": "main", "license": null, "latestRelease": "v1.7.4" }
+  ],
+  "documents": [
+    { "name": "AG-UI documentation", "url": "https://docs.ag-ui.com/", "expectedFinalUrl": "https://docs.ag-ui.com/introduction" },
+    { "name": "Open-JSON-UI ecosystem guide", "url": "https://docs.showcase.copilotkit.ai/agno/generative-ui/open-json-ui", "expectedFinalUrl": "https://docs.showcase.copilotkit.ai/agno/generative-ui/open-json-ui" },
+    { "name": "MCP Apps overview", "url": "https://modelcontextprotocol.io/extensions/apps/overview", "expectedFinalUrl": "https://modelcontextprotocol.io/extensions/apps/overview" },
+    { "name": "CopilotKit documentation", "url": "https://docs.copilotkit.ai/", "expectedFinalUrl": "https://docs.copilotkit.ai/" }
+  ]
+}

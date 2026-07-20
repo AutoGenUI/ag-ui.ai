@@ -1,0 +1,8 @@
+import { notFound } from "next/navigation";
+import type { Metadata } from "next";
+import { LayerMap } from "@/components/layer-map";
+import { isLocale } from "@/lib/i18n";
+import { pageMetadata } from "@/lib/metadata";
+
+export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> { const { locale } = await params; return isLocale(locale) ? pageMetadata(locale, "/map", locale === "zh" ? "生成式 UI 生态图谱" : "Generative UI ecosystem map", locale === "zh" ? "按交互、声明式 UI、宿主与实现层理解核心技术。" : "Understand core technologies by interaction, declarative UI, host and implementation layers.") : {}; }
+export default async function MapPage({ params }: { params: Promise<{ locale: string }> }) { const { locale } = await params; if (!isLocale(locale)) notFound(); return <div className="section-shell page-shell"><header className="page-header"><span className="eyebrow">Ecosystem map</span><h1>{locale === "zh" ? "先看职责，再看 API。" : "Compare responsibilities before APIs."}</h1><p>{locale === "zh" ? "生成式 UI 不是一条单选题。下面四层回答不同架构问题，并可组合为同一条运行链路。" : "Generative UI is not a single-choice category. These four layers answer different architectural questions and can compose into one runtime path."}</p></header><LayerMap locale={locale} /><aside className="atlas-note"><strong>{locale === "zh" ? "读图方法" : "How to read the map"}</strong><p>{locale === "zh" ? "从你的运行表面开始，向上识别交互协议，向下识别 UI 约束与渲染实现。连线代表可组合，不代表依赖或官方背书。" : "Start at your runtime surface, then identify the interaction contract and the UI constraint/rendering model. Adjacency means composability—not dependency or endorsement."}</p></aside></div>; }

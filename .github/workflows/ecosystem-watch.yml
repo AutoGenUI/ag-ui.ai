@@ -1,0 +1,37 @@
+name: Weekly ecosystem watch
+
+on:
+  schedule:
+    - cron: "17 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - id: watch
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/ecosystem-watch.mjs
+      - name: Create or update the single review issue
+        if: steps.watch.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh label create ecosystem-watch --color 2457F5 --description "Automated upstream drift requiring human review" --force
+          issue_number="$(gh issue list --state open --label ecosystem-watch --search 'Weekly ecosystem source drift in:title' --json number --jq '.[0].number // empty')"
+          if [ -n "$issue_number" ]; then
+            gh issue edit "$issue_number" --body-file ecosystem-report.md
+          else
+            gh issue create --title "Weekly ecosystem source drift" --label ecosystem-watch --body-file ecosystem-report.md
+          fi

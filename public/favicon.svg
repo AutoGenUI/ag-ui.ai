@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="AG-UI.AI">
+  <rect width="64" height="64" rx="10" fill="#111318"/>
+  <path d="M15 45 27 17h8l13 28h-8l-3-7H25l-3 7Zm13-14h7l-4-9Z" fill="#f5f2ea"/>
+  <rect x="46" y="15" width="4" height="34" rx="2" fill="#2457f5" transform="rotate(28 48 32)"/>
+</svg>

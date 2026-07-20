@@ -1,0 +1,30 @@
+name: Report outdated or incorrect guidance
+description: Flag a source, maturity, positioning, translation, or security issue.
+title: "[Content]: "
+labels: [content]
+body:
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options: [Source drift, Technical correction, Translation, Security boundary, Accessibility]
+    validations:
+      required: true
+  - type: input
+    id: page
+    attributes:
+      label: Affected page
+      placeholder: https://ag-ui.ai/en/technologies/...
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: What changed or is incorrect?
+      description: Include primary sources and the date you checked them.
+    validations:
+      required: true
+  - type: textarea
+    id: recommendation
+    attributes:
+      label: Suggested correction

@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Architecture discussion
+    url: https://github.com/AutoGenUI/ag-ui.ai/discussions
+    about: Ask technology selection and interoperability questions in Discussions.
