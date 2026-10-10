@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import type { Locale } from "@/lib/types";
 
-const siteName = "AG-UI.AI — Generative UI Atlas";
+const siteName = "AG-UI.AI — Generative UI intelligence";
 
 export function pageMetadata(locale: Locale, path: string, title: string, description: string): Metadata {
+  path = path && !path.startsWith("/") ? `/${path}` : path;
   const localizedPath = `/${locale}${path}`.replace(/\/$/, "") || `/${locale}`;
   const enPath = `/en${path}`.replace(/\/$/, "") || "/en";
   const zhPath = `/zh${path}`.replace(/\/$/, "") || "/zh";

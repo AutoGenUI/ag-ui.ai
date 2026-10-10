@@ -10,7 +10,7 @@ test("content stays bilingual and slug-aligned", async () => {
     assert.deepEqual(bundle[collection].en.map((item) => item.slug).sort(), bundle[collection].zh.map((item) => item.slug).sort());
   }
   assert.equal(bundle.technologies.en.length, 7);
-  assert.equal(bundle.learn.en.length, 3);
+  assert.equal(bundle.learn.en.length, 4);
 });
 
 test("catalog exposes the public schema and source authority", async () => {
@@ -28,7 +28,7 @@ test("catalog exposes the public schema and source authority", async () => {
 });
 
 test("RSS and search index include both locales", async () => {
-  const [rss, search] = await Promise.all([readFile(new URL("public/feed.xml", root), "utf8"), readFile(new URL("public/search-index.json", root), "utf8").then(JSON.parse)]);
+  const [rss, search] = await Promise.all([readFile(new URL("public/legacy-feed.xml", root), "utf8"), readFile(new URL("public/search-index.json", root), "utf8").then(JSON.parse)]);
   assert.match(rss, /<rss version="2\.0">/);
   assert.ok(search.some((item) => item.locale === "en" && item.type === "technologies"));
   assert.ok(search.some((item) => item.locale === "zh" && item.type === "learn"));

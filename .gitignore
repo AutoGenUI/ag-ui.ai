@@ -46,3 +46,6 @@ next-env.d.ts
 /public/search-index.json
 /public/feed.xml
 /ecosystem-report.md
+
+/.dev.vars
+/public/legacy-feed.xml

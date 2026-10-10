@@ -183,7 +183,7 @@ await Promise.all([
   writeFile(path.join(projectRoot, "generated", "content.json"), `${JSON.stringify(bundle, null, 2)}\n`),
   writeFile(path.join(projectRoot, "public", "catalog.json"), `${JSON.stringify(catalog, null, 2)}\n`),
   writeFile(path.join(projectRoot, "public", "search-index.json"), `${JSON.stringify(searchIndex, null, 2)}\n`),
-  writeFile(path.join(projectRoot, "public", "feed.xml"), rss),
+  writeFile(path.join(projectRoot, "public", "legacy-feed.xml"), rss),
 ]);
 
 const documentCount = Object.values(bundle).reduce(

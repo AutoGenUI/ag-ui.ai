@@ -1,76 +1,11 @@
-import assert from "node:assert/strict";
-import test from "node:test";
-
-async function render(pathname = "/en") {
-  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
-  workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}-${pathname}`);
-  const { default: worker } = await import(workerUrl.href);
-  return worker.fetch(
-    new Request(`https://ag-ui.ai${pathname}`, { headers: { accept: "text/html", host: "ag-ui.ai" } }),
-    { ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) } },
-    { waitUntil() {}, passThroughOnException() {} },
-  );
-}
-
-test("root redirects to the English atlas", async () => {
-  const response = await render("/");
-  assert.equal(response.status, 307);
-  assert.equal(new URL(response.headers.get("location")).pathname, "/en");
-});
-
-test("server-renders both localized home pages with semantic content", async () => {
-  for (const [locale, heading] of [["en", "Choose the right layer"], ["zh", "看懂生成式 UI 技术栈"]]) {
-    const response = await render(`/${locale}`);
-    assert.equal(response.status, 200);
-    assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
-    const html = await response.text();
-    assert.match(html, new RegExp(heading));
-    assert.match(html, /Generative UI Atlas/);
-    assert.match(html, /href="\/en"/);
-    assert.match(html, /href="\/zh"/);
-    assert.doesNotMatch(html, /react-loading-skeleton|Your site is taking shape/);
-  }
-});
-
-test("core homepage guidance remains present without executing JavaScript", async () => {
-  const response = await render("/en");
-  const htmlWithoutScripts = (await response.text()).replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "");
-  assert.match(htmlWithoutScripts, /Choose the right layer for your Generative UI stack/);
-  assert.match(htmlWithoutScripts, /One ecosystem\. Four architectural questions/);
-  assert.match(htmlWithoutScripts, /href="\/en\/technologies\/ag-ui"/);
-  assert.match(htmlWithoutScripts, /Compose a stack, not a winner/);
-});
-
-test("technology pages expose canonical, hreflang and structured data", async () => {
-  const response = await render("/en/technologies/ag-ui");
-  assert.equal(response.status, 200);
-  const html = await response.text();
-  assert.match(html, /rel="canonical"[^>]+href="https:\/\/ag-ui\.ai\/en\/technologies\/ag-ui"/);
-  assert.match(html, /hrefLang="en"|hreflang="en"/i);
-  assert.match(html, /TechArticle/);
-  assert.match(html, /BreadcrumbList/);
-  assert.match(html, /Last verified/);
-});
-
-test("lab and comparison routes contain their complete no-key experiences", async () => {
-  const [lab, compare] = await Promise.all([render("/en/lab/ag-ui-events"), render("/en/compare")]);
-  assert.equal(lab.status, 200);
-  assert.equal(compare.status, 200);
-  assert.match(await lab.text(), /EVENT STREAM/);
-  assert.match(await compare.text(), /Comparison matrix/);
-});
-
-test("unknown routes use the site 404", async () => {
-  const response = await render("/en/not-a-real-route");
-  assert.equal(response.status, 404);
-  assert.match(await response.text(), /outside the atlas/);
-});
-
-test("www host permanently redirects without losing path or query", async () => {
-  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
-  workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}-www`);
-  const { default: worker } = await import(workerUrl.href);
-  const response = await worker.fetch(new Request("https://www.ag-ui.ai/zh/map?source=test"), {}, {});
-  assert.equal(response.status, 308);
-  assert.equal(response.headers.get("location"), "https://ag-ui.ai/zh/map?source=test");
-});
+import assert from 'node:assert/strict';
+import test from 'node:test';
+const base=process.env.SITE_TEST_BASE_URL||'http://localhost:4173';
+const render=(path,init={})=>fetch(new URL(path,base),{...init,redirect:'manual'});
+test('root redirects to English and both newsroom locales render semantic content',async()=>{const root=await render('/');assert.equal(root.status,307);assert.equal(new URL(root.headers.get('location'),base).pathname,'/en');for(const [locale,title] of [['en','The next interface.'],['zh','追踪界面的']]){const r=await render('/'+locale);assert.equal(r.status,200);const text=(await r.text()).replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'');assert.ok(text.includes(title));assert.match(text,/Intelligent UI/);assert.match(text,/OUI-1/);}});
+test('news, timeline, trends, knowledge and retained atlas routes render',async()=>{for(const path of ['/en/news','/zh/timeline','/en/trends','/zh/knowledge','/en/sources','/en/map','/zh/compare','/en/learn','/en/updates','/en/lab/ag-ui-events','/en/technologies/ag-ui','/en/learn/academy']){const r=await render(path);assert.equal(r.status,200,path);const html=await r.text();assert.doesNotMatch(html,/Internal Server Error/);}});
+test('article records dates, source labels, limitations, canonical and language alternatives',async()=>{const r=await render('/en/news/openai-gpt6-intelligent-ui');assert.equal(r.status,200);const text=await r.text();for(const value of ['Why it matters','2026-10-07','Source published','Indexed','Verified','Original sources','THE LIMITS OF THE EVIDENCE'])assert.ok(text.includes(value),value);assert.match(text,/https:\/\/ag-ui.ai\/en\/news\/openai-gpt6-intelligent-ui/);assert.match(text,/zh-Hans/);});
+test('RSS returns bilingual news and compatibility feed, without opaque HTML',async()=>{for(const path of ['/feed.xml','/en/feed.xml','/zh/feed.xml']){const r=await render(path);assert.equal(r.status,200);assert.match(r.headers.get('content-type'),/application\/rss\+xml/);const xml=await r.text();assert.equal((xml.match(/<item>/g)||[]).length,25);assert.match(xml,/openai-gpt6-intelligent-ui/);assert.doesNotMatch(xml,/<script/);}});
+test('anonymous visitors cannot read administration or write via MCP; mail stays disabled',async()=>{assert.equal((await render('/api/admin')).status,403);assert.equal((await render('/api/admin',{method:'POST',headers:{origin:base,'content-type':'application/json'},body:JSON.stringify({operation:'bootstrap',arguments:{}})})).status,403);const mcp=await render('/mcp',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/call',params:{name:'newsroom_write',arguments:{operation:'bootstrap',arguments:{}}}})});assert.equal(mcp.status,403);assert.equal((await (await render('/api/subscription/status')).json()).enabled,false);const webhook=await render('/api/brevo/webhook',{method:'POST',body:'{}'});assert.equal(webhook.status,401);const cross=await render('/api/stats',{method:'POST',headers:{origin:'https://evil.example','content-type':'application/json'},body:'{}'});assert.equal(cross.status,403);});
+test('test browsing leaves first-party production-style counters at zero',async()=>{const stats=await (await render('/api/stats')).json();assert.equal(stats.views,0);assert.equal(stats.todayVisitors,0);assert.equal(stats.startedAt,null);});
+test('AI academy still emits the offline event stream without paid credentials',async()=>{const r=await render('/api/agent',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({threadId:'thread-news-test',runId:'run-news-test',state:{},messages:[{id:'user-news-test',role:'user',content:'Explain AG-UI events'}],tools:[],context:[],forwardedProps:{locale:'en',lessonId:'ag-ui',model:{provider:'trial'}}})});assert.equal(r.status,200);const text=await r.text();let cursor=-1;for(const type of ['RUN_STARTED','TOOL_CALL_START','STATE_SNAPSHOT','TEXT_MESSAGE_START','RUN_FINISHED']){const next=text.indexOf(`"type":"${type}"`,cursor+1);assert.ok(next>cursor);cursor=next;}});

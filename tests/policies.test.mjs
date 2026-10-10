@@ -5,15 +5,30 @@ import test from "node:test";
 const root = new URL("../", import.meta.url);
 const read = (path) => readFile(new URL(path, root), "utf8");
 
-test("launch keeps accounts, storage, tracking and remote fonts out of scope", async () => {
+test("Newsroom uses managed D1 and MCP without third-party analytics", async () => {
   const [hosting, packageJson, layout] = await Promise.all([read(".openai/hosting.json"), read("package.json"), read("app/layout.tsx")]);
   const hostingConfig = JSON.parse(hosting);
-  assert.deepEqual(Object.keys(hostingConfig).sort(), ["d1", "project_id", "r2"]);
+  assert.deepEqual(Object.keys(hostingConfig).sort(), ["capabilities", "d1", "project_id", "r2"]);
   assert.match(hostingConfig.project_id, /^appgprj_[a-z0-9]+$/);
-  assert.equal(hostingConfig.d1, null);
+  assert.equal(hostingConfig.d1, "DB");
+  assert.deepEqual(hostingConfig.capabilities, ["mcp"]);
   assert.equal(hostingConfig.r2, null);
-  assert.doesNotMatch(packageJson, /drizzle|auth0|clerk|supabase|analytics|segment|posthog/i);
-  assert.doesNotMatch(layout, /next\/font|google-analytics|gtag/i);
+  assert.doesNotMatch(packageJson, /auth0|clerk|supabase|segment|posthog/i);
+  assert.match(layout, /next\/font\/google/);
+  assert.doesNotMatch(layout, /fonts\.googleapis\.com|google-analytics|gtag/i);
+});
+
+test("model credentials stay request-scoped and the trial is explicitly gated", async () => {
+  const [settings, provider, route] = await Promise.all([
+    read("components/academy/model-settings.tsx"),
+    read("lib/academy/provider.ts"),
+    read("app/api/agent/route.ts"),
+  ]);
+  assert.doesNotMatch(settings, /\b(?:localStorage|sessionStorage)\.(?:getItem|setItem|removeItem)|document\.cookie/);
+  assert.match(settings, /type="password"/);
+  assert.match(provider, /TRIAL_ENABLED\s*!==\s*"true"/);
+  assert.match(provider, /CUSTOM_PROVIDER_HOSTS/);
+  assert.doesNotMatch(route, /console\.(log|error)|error\.stack/);
 });
 
 test("Markdown renderer does not enable raw HTML", async () => {
