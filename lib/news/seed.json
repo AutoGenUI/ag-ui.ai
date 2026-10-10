@@ -1,0 +1,733 @@
+[
+  {
+    "slug": "openai-gpt6-intelligent-ui",
+    "eventDate": "2026-10-07",
+    "publishedAt": "2026-10-07",
+    "verifiedAt": "2026-10-10",
+    "canonicalUrl": "https://openai.com/index/gpt-6-for-everyone/",
+    "sourceName": "OpenAI",
+    "project": "OpenAI",
+    "category": "product",
+    "evidence": "official",
+    "status": "published",
+    "zh": {
+      "title": "ChatGPT 随 GPT-6 推出 Intelligent UI",
+      "summary": "OpenAI 宣布让回答结合文字、图表、表单与可交互工具，并逐步向更多 ChatGPT 套餐开放。",
+      "why": "生成式界面进入面向大众的对话产品，界面选择成为模型回答的一部分。",
+      "details": "官方披露原生可流式组件库与增量编译器，使界面能够边生成边展示。训练评估关注清晰度、实用性与完整性。",
+      "caveat": "公告针对 ChatGPT Chat；不意味着同日提供对应公开 API，也不代表 Work 或 Codex 同步更换模型。",
+      "audience": "开发者、设计师与产品人员"
+    },
+    "en": {
+      "title": "ChatGPT introduces Intelligent UI with GPT-6",
+      "summary": "OpenAI announced responses combining text, charts, forms and interactive tools, with a staged rollout across ChatGPT plans.",
+      "why": "Interface selection becomes part of mainstream conversational responses.",
+      "details": "Native streamable components and an incremental compiler support progressive rendering. Training evaluations consider clarity, usefulness and completeness.",
+      "caveat": "This concerns ChatGPT Chat, not a confirmed public UI API or a simultaneous Work/Codex model change.",
+      "audience": "Developers, designers and product teams"
+    },
+    "indexedAt": "2026-10-10T11:45:00.000Z"
+  },
+  {
+    "slug": "openui-oui1-specialized-model",
+    "eventDate": "2026-09-08",
+    "publishedAt": "2026-09-08",
+    "verifiedAt": "2026-10-10",
+    "canonicalUrl": "https://www.openui.com/blog/oui-1",
+    "sourceName": "Thesys Engineering Team",
+    "project": "OpenUI",
+    "category": "model",
+    "evidence": "official",
+    "status": "published",
+    "zh": {
+      "title": "OUI-1 发布：面向生成式界面的开放权重模型",
+      "summary": "Thesys 发布以 DiffusionGemma 微调的 OUI-1，生成 OpenUI Lang，并探索消费级设备上的本地界面生成。",
+      "why": "专用模型为低延迟、靠近用户设备的生成式 UI 提供了另一条路线。",
+      "details": "模型有 26B 总参数、4B 活跃参数。训练结合监督微调、解析器反馈修复与自蒸馏。",
+      "caveat": "71.7% 是厂商自有评测结果，尚非独立复现；不采用其“世界第一”宣传。",
+      "audience": "开发者与模型研究者"
+    },
+    "en": {
+      "title": "OUI-1 brings specialized open weights to UI generation",
+      "summary": "Thesys released a DiffusionGemma fine-tune producing OpenUI Lang, targeting local interface generation.",
+      "why": "Specialization offers another route toward responsive interfaces on consumer hardware.",
+      "details": "The model has 26B total and 4B active parameters. Training combines supervision, parser-guided repair and self-distillation.",
+      "caveat": "Its reported 71.7% score is first-party evidence, not independent replication or proof of a world-first claim.",
+      "audience": "Developers and model researchers"
+    },
+    "indexedAt": "2026-10-10T11:45:00.000Z"
+  },
+  {
+    "slug": "openui-reliability-benchmark-publication",
+    "eventDate": "2026-08-17",
+    "publishedAt": "2026-08-17",
+    "verifiedAt": "2026-10-10",
+    "canonicalUrl": "https://www.openui.com/blog/generative-ui-benchmark",
+    "sourceName": "Thesys Engineering Team",
+    "project": "OpenUI",
+    "category": "research",
+    "evidence": "vendor-test",
+    "status": "published",
+    "zh": {
+      "title": "OpenUI 发布生成式界面可靠性比较方法",
+      "summary": "Thesys 比较 OpenUI、A2UI 与 json-render，分别观察结构有效性、能否显示内容及 token 消耗。",
+      "why": "可渲染、结构正确和满足任务是不同验收层次，失败形态也影响用户体验。",
+      "details": "方法采用 46 个提示、6 个模型与统一 70 组件目录，并重复生成。本文仅确认评测发布及方法，争议比较数字待核验。",
+      "caveat": "组件目录源自 OpenUI；原文正文与表格存在数字及版本矛盾，不能据此确认通用排名。",
+      "audience": "开发者与评测研究者"
+    },
+    "en": {
+      "title": "OpenUI publishes a reliability comparison methodology",
+      "summary": "Thesys compared OpenUI, A2UI and json-render through structural validity, visible output and token use.",
+      "why": "Rendering, structural correctness and task completion require separate checks.",
+      "details": "The setup uses 46 prompts, six models and a shared 70-component catalog with repeated runs. This report covers the publication and method; disputed figures await verification.",
+      "caveat": "The vendor-derived catalog and inconsistent figures/version labels prevent a general ranking.",
+      "audience": "Developers and evaluation researchers"
+    },
+    "indexedAt": "2026-10-10T11:45:00.000Z"
+  },
+  {
+    "slug": "gemini-generative-interfaces-launch",
+    "eventDate": "2025-11-18",
+    "publishedAt": "2025-11-18",
+    "verifiedAt": "2026-10-10",
+    "canonicalUrl": "https://blog.google/products-and-platforms/products/gemini/gemini-3-gemini-app/",
+    "sourceName": "Google",
+    "project": "Gemini",
+    "category": "product",
+    "evidence": "official",
+    "status": "published",
+    "zh": {
+      "title": "历史里程碑：Gemini 引入按需生成的交互界面",
+      "summary": "Google 随 Gemini 3 宣布 visual layout 与 dynamic view 两种生成式界面实验。",
+      "why": "同一问题能够选择不同的信息布局和交互方式，而非固定文字回答。",
+      "details": "visual layout 组合视觉模块。dynamic view 利用模型编码能力实时生成定制界面。",
+      "caveat": "这是 2025 年历史补录；实验性分批推出公告不证明每位用户当前均能使用。",
+      "audience": "开发者、设计师与产品人员"
+    },
+    "en": {
+      "title": "Milestone: Gemini introduces on-demand generative interfaces",
+      "summary": "Google announced visual layout and dynamic view experiments alongside Gemini 3.",
+      "why": "Responses can adapt both their layout and interaction to a question.",
+      "details": "Visual layout assembles rich modules. Dynamic view generates a custom interface through coding.",
+      "caveat": "This is a 2025 backfill; the experimental rollout does not establish universal current availability.",
+      "audience": "Developers, designers and product teams"
+    },
+    "indexedAt": "2026-10-10T11:45:00.000Z"
+  },
+  {
+    "slug": "macaron-a2ui-personal-agent-models",
+    "eventDate": "2026-05-24",
+    "publishedAt": "2026-05-24",
+    "verifiedAt": "2026-10-10",
+    "canonicalUrl": "https://arxiv.org/abs/2605.24830",
+    "sourceName": "Macaron-A2UI authors / arXiv",
+    "project": "Macaron-A2UI",
+    "category": "model",
+    "evidence": "research",
+    "status": "published",
+    "zh": {
+      "title": "Macaron-A2UI 探索个人智能体的专用界面模型",
+      "summary": "研究将自然语言与轻量可执行 UI 动作结合，用于收集信息、调整偏好和确认操作。",
+      "why": "生成式 UI 的训练目标扩展到用户决策与交互组织。",
+      "details": "论文提出 A2UI-Bench。作者对多种规模模型实施 LoRA 监督微调及奖励驱动训练。",
+      "caveat": "分数来自作者设计的评测；名称不应被误写为 Google A2UI 的官方模型。",
+      "audience": "开发者与模型研究者"
+    },
+    "en": {
+      "title": "Macaron-A2UI explores specialized UI models for personal agents",
+      "summary": "The paper combines natural language with executable UI actions for information gathering, preferences and confirmation.",
+      "why": "Training targets interaction and user decisions as well as presentation.",
+      "details": "It introduces A2UI-Bench. Models use LoRA supervision followed by reward-driven optimization.",
+      "caveat": "Results use the authors’ benchmark; this is not established as Google’s official A2UI model.",
+      "audience": "Developers and model researchers"
+    },
+    "indexedAt": "2026-10-10T11:45:00.000Z"
+  },
+  {
+    "slug": "design-theater-rationale-implementation-gap",
+    "eventDate": "2026-07-24",
+    "publishedAt": "2026-07-24",
+    "verifiedAt": "2026-10-10",
+    "canonicalUrl": "https://arxiv.org/abs/2607.22928",
+    "sourceName": "Design Theater authors / arXiv",
+    "project": "Design Theater",
+    "category": "research",
+    "evidence": "research",
+    "status": "published",
+    "zh": {
+      "title": "Design Theater 检查界面是否兑现设计解释",
+      "summary": "研究评估生成式 UI 工具对设计选择的解释，与实际生成界面之间的落差。",
+      "why": "可信的解释不能替代可操作界面与功能验收。",
+      "details": "作者以 24 项任务评估 5 种工具生成的 120 个界面，覆盖结构、样式与功能要求。所读版本于 7 月 31 日修订。",
+      "caveat": "结论受当时工具版本和任务集合限制，不是所有生成式 UI 系统的总体故障率。",
+      "audience": "设计师、产品人员与研究者"
+    },
+    "en": {
+      "title": "Design Theater tests whether interfaces fulfill their explanations",
+      "summary": "Researchers examined gaps between tools’ design rationales and implemented interfaces.",
+      "why": "Persuasive explanations cannot substitute for behavioral verification.",
+      "details": "The study evaluates 120 interfaces from five tools across 24 structural, styling and functional tasks. The consulted version was revised July 31.",
+      "caveat": "Findings concern sampled versions and tasks, not a universal failure rate.",
+      "audience": "Designers, product teams and researchers"
+    },
+    "indexedAt": "2026-10-10T11:45:00.000Z"
+  },
+  {
+    "slug": "evogenui-multiturn-benchmark",
+    "eventDate": "2026-08-29",
+    "publishedAt": "2026-08-29",
+    "verifiedAt": "2026-10-10",
+    "canonicalUrl": "https://arxiv.org/abs/2608.29387",
+    "sourceName": "EvoGenUI-Bench authors / arXiv",
+    "project": "EvoGenUI-Bench",
+    "category": "research",
+    "evidence": "research",
+    "status": "published",
+    "zh": {
+      "title": "EvoGenUI-Bench 将可靠性评测扩展到连续修改",
+      "summary": "新评测考察用户需求连续变化时，生成式界面能否保持执行能力与状态一致。",
+      "why": "单次成功截图无法证明第五轮修改后仍然可用。",
+      "details": "150 个五轮任务覆盖信息呈现、交互和工具外部状态，结合浏览器执行、DOM、截图与日志取证。所读版本于 9 月 7 日修订。",
+      "caveat": "论文报告的模型表现依赖此任务集；本站未独立复现其评分。",
+      "audience": "开发者与评测研究者"
+    },
+    "en": {
+      "title": "EvoGenUI-Bench evaluates interfaces through repeated changes",
+      "summary": "The benchmark tests executable interfaces as user requirements evolve across turns.",
+      "why": "A successful screenshot cannot establish reliability after repeated edits.",
+      "details": "It includes 150 five-turn tasks, using browser execution, DOM evidence, screenshots and runtime logs. The consulted version was revised September 7.",
+      "caveat": "Reported model results are task-dependent and have not been independently reproduced here.",
+      "audience": "Developers and evaluation researchers"
+    },
+    "indexedAt": "2026-10-10T11:45:00.000Z"
+  },
+  {
+    "slug": "guide-designer-conformance",
+    "eventDate": "2026-09-18",
+    "publishedAt": "2026-09-18",
+    "verifiedAt": "2026-10-10",
+    "canonicalUrl": "https://arxiv.org/abs/2609.21285",
+    "sourceName": "GUIDE authors / arXiv",
+    "project": "GUIDE",
+    "category": "research",
+    "evidence": "research",
+    "status": "published",
+    "zh": {
+      "title": "GUIDE 让设计师持续校准生成式界面",
+      "summary": "GUIDE 研究如何通过设计师的检查与修改，使动态生成结果更符合设计意图和品牌要求。",
+      "why": "动态界面无法逐页预先审核，设计约束需要进入持续生成流程。",
+      "details": "系统结合提示优化、自适应一致性评分与设计师反馈。作者开展了 12 名 UI/UX 从业者参与的研究。",
+      "caveat": "小规模研究提供可行性证据，不代表跨品牌或大规模上线已验证。",
+      "audience": "设计师、产品人员与研究者"
+    },
+    "en": {
+      "title": "GUIDE lets designers refine generative UI behavior",
+      "summary": "GUIDE studies how designer feedback can align generated interfaces with intent and brand requirements.",
+      "why": "Dynamic screens require constraints that survive ongoing generation.",
+      "details": "The system combines prompt optimization, adaptive conformance scoring and designer feedback. Evaluation included 12 UI/UX practitioners.",
+      "caveat": "The small study supports feasibility, not broad deployment or cross-brand validation.",
+      "audience": "Designers, product teams and researchers"
+    },
+    "indexedAt": "2026-10-10T11:45:00.000Z"
+  },
+  {
+    "slug": "gemini-learning-interactives-research",
+    "eventDate": "2026-09-17",
+    "publishedAt": "2026-09-17",
+    "verifiedAt": "2026-10-10",
+    "canonicalUrl": "https://arxiv.org/abs/2609.20738",
+    "sourceName": "Learning Interactives authors / arXiv",
+    "project": "Gemini Learning Interactives",
+    "category": "research",
+    "evidence": "research",
+    "status": "published",
+    "zh": {
+      "title": "教育研究探索有教学约束的生成式交互模拟",
+      "summary": "研究提出 learning interactives，借助 Gemini 构建定制学习模拟，并由教育工作者评估。",
+      "why": "有交互并不自动产生学习效果，生成流程还需体现教学目标。",
+      "details": "框架围绕教学原则组织模拟生成。评估包含教育工作者研究与专家教师评分。",
+      "caveat": "这些评估不等同于已证明学生长期成绩提升，也不是独立产品全面上线公告。",
+      "audience": "教育产品人员、设计师与研究者"
+    },
+    "en": {
+      "title": "Learning interactives adds pedagogical constraints to generated simulations",
+      "summary": "Researchers used Gemini to produce tailored learning simulations evaluated by educators.",
+      "why": "Interactivity alone does not establish educational effectiveness.",
+      "details": "The framework structures generation around pedagogy. Evaluation combines educator studies with expert teacher ratings.",
+      "caveat": "These evaluations do not establish long-term student gains or a general product launch.",
+      "audience": "Education product teams, designers and researchers"
+    },
+    "indexedAt": "2026-10-10T11:45:00.000Z"
+  },
+  {
+    "slug": "openui-reactive-query-runtime",
+    "eventDate": "2026-07-23",
+    "publishedAt": "2026-07-23",
+    "verifiedAt": "2026-10-10",
+    "canonicalUrl": "https://www.openui.com/blog/the-llm-is-not-your-query-engine",
+    "sourceName": "Thesys Engineering Team",
+    "project": "OpenUI Lang",
+    "category": "framework",
+    "evidence": "official",
+    "status": "published",
+    "zh": {
+      "title": "OpenUI 讨论将重复交互交给查询运行时",
+      "summary": "技术文章展示模型生成界面规范后，由运行时处理筛选与查询，而非每次交互都重新调用模型。",
+      "why": "生成意图与执行交互分离，有助于降低重复操作的延迟及上下文负担。",
+      "details": "OpenUI Lang 使用响应式变量和 Query 声明绑定控件、参数与数据结果。已有控件参数变化由运行时重新执行查询。",
+      "caveat": "文中节省比例是场景估算；新意图仍可能调用模型，语义错误和工具权限仍需处理。",
+      "audience": "开发者与技术产品人员"
+    },
+    "en": {
+      "title": "OpenUI moves repeat interactions into a query runtime",
+      "summary": "The technical article demonstrates interfaces whose runtime handles filters and queries after initial generation.",
+      "why": "Separating intent generation from interaction can reduce repeated inference and context overhead.",
+      "details": "Reactive variables and Query declarations connect controls, parameters and results. Parameter changes rerun declared queries through the runtime.",
+      "caveat": "Savings are scenario estimates; new intent, semantic mistakes and tool authorization still need handling.",
+      "audience": "Developers and technical product teams"
+    },
+    "indexedAt": "2026-10-10T11:45:00.000Z"
+  },
+  {
+    "slug": "chatgpt-intelligent-ui-community-analysis",
+    "eventDate": "2026-10-08",
+    "publishedAt": "2026-10-08",
+    "verifiedAt": "2026-10-10",
+    "canonicalUrl": "https://www.openui.com/blog/how-chatgpt-intelligent-ui-works",
+    "sourceName": "Thesys Engineering Team",
+    "project": "ChatGPT Intelligent UI",
+    "category": "case-study",
+    "evidence": "community",
+    "status": "published",
+    "zh": {
+      "title": "社区观察：Thesys 分析 ChatGPT Intelligent UI 的运行方式",
+      "summary": "Thesys 根据网页版客户端与交互流量，发表对 Intelligent UI 编译和渲染机制的技术观察。",
+      "why": "该观察为流式生成、状态保留和本地交互提供可研究的架构线索。",
+      "details": "作者描述 DIL 格式、服务端编译以及隔离运行时与原生组件之间的操作传递。其样本来自 2026 年 10 月的网页版。",
+      "caveat": "这是第三方逆向观察，不是 OpenAI 官方架构规范；移动端复用推测未直接验证，内部实现可变。",
+      "audience": "开发者与架构研究者"
+    },
+    "en": {
+      "title": "Community observation: Thesys examines ChatGPT Intelligent UI",
+      "summary": "Thesys analyzed web client behavior and traffic to describe Intelligent UI compilation and rendering.",
+      "why": "The observations offer architectural leads on streaming, persistent state and local interaction.",
+      "details": "The authors describe DIL, server compilation and operations exchanged between an isolated runtime and native components. Their observations concern October 2026 web samples.",
+      "caveat": "This is third-party reverse engineering, not an OpenAI specification; mobile reuse was not directly verified and internals can change.",
+      "audience": "Developers and architecture researchers"
+    },
+    "sources": [
+      {
+        "url": "https://openai.com/index/gpt-6-for-everyone/",
+        "label": "OpenAI official product announcement"
+      }
+    ],
+    "indexedAt": "2026-10-10T11:45:00.000Z"
+  },
+  {
+    "slug": "legoui-provenance-design-control",
+    "eventDate": "2026-08-04",
+    "publishedAt": "2026-08-04",
+    "verifiedAt": "2026-10-10",
+    "canonicalUrl": "https://arxiv.org/abs/2608.04293",
+    "sourceName": "LEGOUI authors / arXiv",
+    "project": "LEGOUI",
+    "category": "research",
+    "evidence": "research",
+    "status": "published",
+    "zh": {
+      "title": "LEGOUI 用可追溯的中间表示支持设计师干预",
+      "summary": "LEGOUI 将界面生成分成可解释的阶段，以 UI-DSL 保存各阶段产物和来源信息。",
+      "why": "可检查的中间步骤能够帮助设计师定位偏差，而非反复试探完整提示。",
+      "details": "作者使用 40 个真实设计提示评估需求分析，并开展用户研究。设计师能够介入各阶段，逐步调整生成结果。",
+      "caveat": "需求分析准确率不等于完整界面正确率；研究结果依赖样本与比较工具。",
+      "audience": "设计师、开发者与人机交互研究者"
+    },
+    "en": {
+      "title": "LEGOUI uses traceable intermediate representations for design control",
+      "summary": "LEGOUI divides generation into interpretable stages recorded in a UI-DSL with provenance.",
+      "why": "Inspectable intermediate steps can help designers locate mismatches instead of repeatedly rewriting prompts.",
+      "details": "The authors evaluated requirement analysis on 40 real-world design prompts and conducted user studies. Designers can intervene and refine intermediate results.",
+      "caveat": "Requirement-analysis accuracy is not whole-interface correctness; findings depend on samples and comparison tools.",
+      "audience": "Designers, developers and HCI researchers"
+    },
+    "indexedAt": "2026-10-10T11:45:00.000Z"
+  },
+  {
+    "slug": "open-intelligent-ui-launch",
+    "eventDate": "2026-10-09",
+    "publishedAt": "2026-10-09",
+    "canonicalUrl": "https://www.copilotkit.ai/blog/introducing-open-intelligent-ui",
+    "sourceName": "CopilotKit",
+    "project": "CopilotKit",
+    "category": "product",
+    "evidence": "official",
+    "zh": {
+      "title": "CopilotKit 开源 Open Intelligent UI，把即时界面生成带入自有应用",
+      "summary": "CopilotKit 发布 Open Intelligent UI，展示按需生成图表、地图、交互工具与三维场景的应用。项目通过 AG-UI 连接智能体。",
+      "why": "它提供了可检视的实现，帮助团队探索对话中何时应出现交互界面。",
+      "details": "生成的代码运行于隔离 iframe，外部库受 CDN 白名单限制。示例使用 Deep Agents，并以 OpenAI 生成回答、Jev 选择呈现形式。",
+      "caveat": "这是厂商发布的开源实现，未独立验证与 ChatGPT 等效；默认示例仍需模型服务密钥。",
+      "audience": "应用开发者、产品设计师"
+    },
+    "en": {
+      "title": "Open Intelligent UI brings on-demand interfaces to application builders",
+      "summary": "CopilotKit released an open-source app that generates charts, maps, tools and 3D scenes through AG-UI-connected agents.",
+      "why": "An inspectable implementation helps teams explore when conversation needs an interface.",
+      "details": "Generated code runs in an isolated iframe with approved CDNs. The demo combines Deep Agents, OpenAI answers and Jev format selection.",
+      "caveat": "Feature parity with ChatGPT is unverified; the default demo requires provider keys.",
+      "audience": "Application developers and product designers"
+    },
+    "verifiedAt": "2026-10-10",
+    "status": "published",
+    "indexedAt": "2026-10-10T11:45:00.000Z"
+  },
+  {
+    "slug": "genkit-dart-1-0-a2ui",
+    "eventDate": "2026-10-08",
+    "publishedAt": "2026-10-08",
+    "canonicalUrl": "https://flutter.dev/blog/announcing-genkit-dart-1-0",
+    "sourceName": "Flutter Blog",
+    "project": "Genkit Dart",
+    "category": "framework",
+    "evidence": "official",
+    "zh": {
+      "title": "Genkit Dart 1.0 发布，并展示 A2UI 原生界面流",
+      "summary": "Google 宣布 Genkit Dart 首个稳定版本，同时介绍通过 genkit_a2ui 向 Flutter 流式输出交互界面的路线。",
+      "why": "Dart 团队可把模型编排、类型化数据与原生界面放进同一技术栈。",
+      "details": "核心框架提供类型化 flow、工具中断及遥测。A2UI 集成可传送日期选择器、表单和确认卡片，由 Flutter 增量渲染。",
+      "caveat": "核心 1.0 稳定不代表所有高层智能体及生成式 UI API 都已稳定；文章将后者放在探索中的能力部分。",
+      "audience": "Flutter 开发者、智能体架构师"
+    },
+    "en": {
+      "title": "Genkit Dart 1.0 connects a stable core with an A2UI direction",
+      "summary": "Google announced stable Genkit Dart 1.0 and described streaming native Flutter interfaces through genkit_a2ui.",
+      "why": "Dart teams gain a shared stack for orchestration, typed data and UI.",
+      "details": "Core features include typed flows, tool interrupts and telemetry. The A2UI integration streams forms, date pickers and confirmation cards.",
+      "caveat": "Stable core status does not cover every higher-level agent or UI API discussed in the experimental direction.",
+      "audience": "Flutter developers and agent architects"
+    },
+    "verifiedAt": "2026-10-10",
+    "status": "published",
+    "indexedAt": "2026-10-10T11:45:00.000Z"
+  },
+  {
+    "slug": "ag-ui-1-0-stable-spec",
+    "eventDate": "2026-09-30",
+    "publishedAt": "2026-09-30",
+    "canonicalUrl": "https://www.copilotkit.ai/blog/ag-ui-1.0",
+    "sourceName": "CopilotKit",
+    "project": "AG-UI",
+    "category": "protocol",
+    "evidence": "official",
+    "zh": {
+      "title": "AG-UI 1.0 固化事件规范，补齐子智能体与中断语义",
+      "summary": "AG-UI 发布 1.0 规范及 JSON Schema，统一描述智能体与用户应用之间的事件。TypeScript、Python、.NET SDK 从同一 schema 生成。",
+      "why": "稳定的交互契约使生成式界面更容易对接不同智能体后端。",
+      "details": "新能力包括子智能体事件、元数据、多模态工具结果、人工中断与 token 用量。规范还明确事件顺序、运行结束及兼容处理。",
+      "caveat": "协议兼容不等于 SDK 代码无需修改；迁移指南列出了校验器入口和类型变化。",
+      "audience": "协议实现者、前后端开发者"
+    },
+    "en": {
+      "title": "AG-UI 1.0 stabilizes events for subagents and user intervention",
+      "summary": "AG-UI published a stable specification and shared JSON Schema for its TypeScript, Python and .NET SDKs.",
+      "why": "A common interaction contract makes UI integrations less dependent on individual agent frameworks.",
+      "details": "Additions cover subagents, metadata, multimodal tool results, interrupts and token usage. Behavioral rules define event ordering and run completion.",
+      "caveat": "Wire compatibility does not remove SDK migration work; imports and types changed.",
+      "audience": "Protocol implementers and application developers"
+    },
+    "verifiedAt": "2026-10-10",
+    "status": "published",
+    "indexedAt": "2026-10-10T11:45:00.000Z"
+  },
+  {
+    "slug": "json-render-0-21-tanstack-composition",
+    "eventDate": "2026-09-18",
+    "publishedAt": "2026-09-18",
+    "canonicalUrl": "https://github.com/vercel-labs/json-render/releases/tag/v0.21.0",
+    "sourceName": "Vercel Labs GitHub Releases",
+    "project": "json-render",
+    "category": "framework",
+    "evidence": "official",
+    "zh": {
+      "title": "json-render 0.21 扩展到路由应用与候选界面组合",
+      "summary": "json-render 0.21 新增 TanStack Start 渲染器，并加入基于应用候选项的实验性 Jev 界面组合。",
+      "why": "声明式 UI 开始覆盖路由、布局及服务端数据加载等应用结构。",
+      "details": "新渲染器支持文件路由、共享布局和 SSR loader。版本同时改善 React 流式渲染，并为 Vue 增加命名插槽。",
+      "caveat": "Jev 组合 API 明确标注实验性；发行时间经 GitHub API 核验为 2026-09-18 18:53:03 UTC。",
+      "audience": "前端架构师、组件平台开发者"
+    },
+    "en": {
+      "title": "json-render 0.21 adds application routing and candidate composition",
+      "summary": "Version 0.21 adds a TanStack Start renderer and experimental Jev composition from app-owned candidates.",
+      "why": "Declarative UI reaches application structure beyond individual components.",
+      "details": "The renderer supports routes, layouts and SSR loaders. React streaming and Vue named slots also improve.",
+      "caveat": "Composition APIs remain experimental; GitHub records publication at 2026-09-18 18:53:03 UTC.",
+      "audience": "Frontend architects and component platform developers"
+    },
+    "verifiedAt": "2026-10-10",
+    "status": "published",
+    "indexedAt": "2026-10-10T11:45:00.000Z"
+  },
+  {
+    "slug": "copilotkit-webmcp-tools",
+    "eventDate": "2026-09-03",
+    "publishedAt": "2026-09-03",
+    "canonicalUrl": "https://www.copilotkit.ai/blog/introducing-webmcp-for-copilotkit",
+    "sourceName": "CopilotKit",
+    "project": "CopilotKit / WebMCP",
+    "category": "framework",
+    "evidence": "official",
+    "zh": {
+      "title": "CopilotKit 让前端工具可被 WebMCP 浏览器智能体发现",
+      "summary": "CopilotKit 增加 WebMCP 支持，可按工具启用浏览器智能体访问既有 useFrontendTool 能力。",
+      "why": "同一应用操作可被内嵌助手与外部浏览器智能体复用。",
+      "details": "工具随组件挂载注册、卸载移除，并携带调用注解。服务端渲染及不支持的环境采用回退处理。",
+      "caveat": "这是相邻的交互基础设施，并非新的 UI 生成模型；可用性取决于浏览器支持和工具授权。",
+      "audience": "前端开发者、浏览器智能体开发者"
+    },
+    "en": {
+      "title": "CopilotKit exposes frontend tools through WebMCP",
+      "summary": "CopilotKit added per-tool WebMCP support so browser agents can discover existing frontend actions.",
+      "why": "Embedded assistants and browser agents can reuse application operations.",
+      "details": "Tools register with component lifecycle and carry annotations. Unsupported and server-rendered environments fall back gracefully.",
+      "caveat": "This is adjacent interaction infrastructure, not a UI generation model; browser support and authorization still matter.",
+      "audience": "Frontend and browser-agent developers"
+    },
+    "verifiedAt": "2026-10-10",
+    "status": "published",
+    "indexedAt": "2026-10-10T11:45:00.000Z"
+  },
+  {
+    "slug": "copilotkit-react-native-ui",
+    "eventDate": "2026-08-19",
+    "publishedAt": "2026-08-19",
+    "canonicalUrl": "https://www.copilotkit.ai/blog/react-native-your-agent-inside-your-mobile-app",
+    "sourceName": "CopilotKit",
+    "project": "CopilotKit React Native",
+    "category": "framework",
+    "evidence": "official",
+    "zh": {
+      "title": "CopilotKit 将 AG-UI 交互带入 React Native 原生组件",
+      "summary": "CopilotKit 展示 React Native SDK，把 AG-UI 智能体接入 iOS 和 Android，并在聊天中渲染原生组件。",
+      "why": "生成式交互可复用后端，同时适应移动端的组件与设备能力。",
+      "details": "useRenderTool 将工具结果映射到 React 元素；前端工具在设备端执行。运行时由应用方托管，模型密钥保留在服务器。",
+      "caveat": "文中 A2UI 属于后续方向，不能据此宣称原生 A2UI 已完整发布；语音需自行集成。",
+      "audience": "移动开发者、跨端产品团队"
+    },
+    "en": {
+      "title": "CopilotKit brings AG-UI to native React Native components",
+      "summary": "The React Native SDK connects AG-UI agents to iOS and Android interfaces using native components.",
+      "why": "Teams can reuse agent backends while adapting interaction to devices.",
+      "details": "useRenderTool maps tool calls to React elements, while frontend handlers run on-device. A self-hosted runtime keeps model keys server-side.",
+      "caveat": "A2UI is described as a future direction; voice remains bring-your-own.",
+      "audience": "Mobile developers and cross-platform product teams"
+    },
+    "verifiedAt": "2026-10-10",
+    "status": "published",
+    "indexedAt": "2026-10-10T11:45:00.000Z"
+  },
+  {
+    "slug": "json-render-0-20-slots-repeats",
+    "eventDate": "2026-08-18",
+    "publishedAt": "2026-08-18",
+    "canonicalUrl": "https://github.com/vercel-labs/json-render/releases/tag/v0.20.0",
+    "sourceName": "Vercel Labs GitHub Releases",
+    "project": "json-render",
+    "category": "framework",
+    "evidence": "official",
+    "zh": {
+      "title": "json-render 0.20 增加命名插槽与嵌套数据重复渲染",
+      "summary": "json-render 0.20 为 React 增加命名插槽，并让多个渲染目标支持基于当前条目的嵌套重复结构。",
+      "why": "组件目录能表达更复杂的布局和层级数据，减少生成界面的特殊分支。",
+      "details": "header、footer 等插槽贯穿校验、流式处理与导出流程。版本修复链式动作参数，并新增 AI SDK harness 聊天示例。",
+      "caveat": "自定义 executeAction 桥接需改接 ActionBinding；GitHub 记录发布时间为 2026-08-18 18:23:29 UTC。",
+      "audience": "组件库维护者、生成式 UI 开发者"
+    },
+    "en": {
+      "title": "json-render 0.20 expands slots and nested data rendering",
+      "summary": "Version 0.20 adds React named slots and item-relative nested repeats across renderers.",
+      "why": "Component catalogs can express richer layouts and hierarchical data.",
+      "details": "Slots survive validation, streaming and export. The release fixes chained action parameters and adds an AI SDK harness example.",
+      "caveat": "Custom executeAction bridges must accept ActionBinding; publication was 2026-08-18 18:23:29 UTC.",
+      "audience": "Component-library maintainers and generative UI developers"
+    },
+    "verifiedAt": "2026-10-10",
+    "status": "published",
+    "indexedAt": "2026-10-10T11:45:00.000Z"
+  },
+  {
+    "slug": "copilotkit-channels-sdk-launch",
+    "eventDate": "2026-08-04",
+    "publishedAt": "2026-08-04",
+    "canonicalUrl": "https://www.copilotkit.ai/blog/channels-sdk",
+    "sourceName": "CopilotKit",
+    "project": "CopilotKit Channels SDK",
+    "category": "framework",
+    "evidence": "official",
+    "zh": {
+      "title": "Channels SDK 将 AG-UI 智能体界面扩展到 Slack 与 Teams",
+      "summary": "CopilotKit 发布 Channels SDK，用统一代码把智能体及交互消息带到 Slack、Microsoft Teams。",
+      "why": "生成式 UI 的呈现表面从独立网页延伸到团队日常沟通工具。",
+      "details": "同一 JSX 消息可映射为 Slack Block Kit 或 Teams Adaptive Cards。交互支持工具、人工审批及会话状态。",
+      "caveat": "SDK 开源不意味着托管通道永久免费；发布方案依赖 CopilotKit Intelligence，生产持久化需配置存储。",
+      "audience": "企业应用团队、协作工具开发者"
+    },
+    "en": {
+      "title": "Channels SDK carries AG-UI experiences into Slack and Teams",
+      "summary": "CopilotKit released a shared SDK for agents and interactive messages across Slack and Microsoft Teams.",
+      "why": "Generative interfaces can reach existing collaboration surfaces.",
+      "details": "JSX messages map to Block Kit or Adaptive Cards. Tools, approvals and conversation state accompany the UI.",
+      "caveat": "The managed channel path depends on CopilotKit Intelligence; production persistence needs storage. Open source does not imply free hosting.",
+      "audience": "Enterprise application and collaboration-tool teams"
+    },
+    "verifiedAt": "2026-10-10",
+    "status": "published",
+    "indexedAt": "2026-10-10T11:45:00.000Z"
+  },
+  {
+    "slug": "copilotkit-angular-launch",
+    "eventDate": "2026-07-23",
+    "publishedAt": "2026-07-23",
+    "canonicalUrl": "https://www.copilotkit.ai/blog/copilotkit-for-angular",
+    "sourceName": "CopilotKit",
+    "project": "CopilotKit Angular",
+    "category": "framework",
+    "evidence": "official",
+    "zh": {
+      "title": "CopilotKit 发布 Angular 集成，连接受控组件与开放生成界面",
+      "summary": "CopilotKit 宣布由 Soverius AI 在主仓库维护 Angular 绑定，提供聊天、共享状态和多种生成式 UI 路径。",
+      "why": "采用 Angular 的团队可在既有应用中探索智能体界面。",
+      "details": "工具调用可渲染 Angular 组件，也可使用 A2UI 表面或隔离 iframe。MacroQuest 示例通过 NgRx Signal Store 保持可信状态。",
+      "caveat": "公告时支持 Angular 19–21，22 仍在后续计划；本条记录发布时范围。",
+      "audience": "Angular 开发者、企业前端团队"
+    },
+    "en": {
+      "title": "CopilotKit adds Angular paths for controlled and open UI",
+      "summary": "CopilotKit announced upstream Angular bindings maintained by Soverius AI, including chat and shared state.",
+      "why": "Angular teams can integrate agent interfaces into existing applications.",
+      "details": "Tool calls render Angular components, A2UI surfaces or sandboxed UI. The MacroQuest example keeps trusted data in NgRx Signal Store.",
+      "caveat": "The announcement supports Angular 19–21, with 22 planned; this records launch scope.",
+      "audience": "Angular developers and enterprise frontend teams"
+    },
+    "verifiedAt": "2026-10-10",
+    "status": "published",
+    "indexedAt": "2026-10-10T11:45:00.000Z"
+  },
+  {
+    "slug": "a2ui-mcp-apps-three-patterns",
+    "eventDate": "2026-06-17",
+    "publishedAt": "2026-06-17",
+    "canonicalUrl": "https://developers.googleblog.com/en/a2ui-and-mcp-apps/",
+    "sourceName": "Google Developers Blog",
+    "project": "A2UI / MCP Apps",
+    "category": "protocol",
+    "evidence": "official",
+    "zh": {
+      "title": "Google 与 MCP Apps 共创者给出三种界面互操作模式",
+      "summary": "官方文章展示 A2UI 经 MCP 传输、A2UI 内嵌 MCP App，以及 MCP App 内运行 A2UI 渲染器三种组合。",
+      "why": "原生组件的一致性与自定义网页的灵活性可以按场景组合。",
+      "details": "示例以 application/a2ui+json 传递声明式界面。复杂模块可运行于 iframe，并通过事件同步关键状态。",
+      "caveat": "这是架构模式与示例发布；文章称专门 MCP 扩展仍在考虑，不能写成已经统一的正式标准。",
+      "audience": "平台架构师、MCP 应用开发者"
+    },
+    "en": {
+      "title": "A2UI and MCP Apps document three interoperability patterns",
+      "summary": "Google and MCP Apps co-creators show A2UI over MCP, MCP Apps inside A2UI, and A2UI inside MCP Apps.",
+      "why": "Teams can combine native consistency with custom web interactions.",
+      "details": "Examples use application/a2ui+json for declarative payloads. Embedded apps synchronize key state through events.",
+      "caveat": "These are patterns and samples; a dedicated MCP extension was still under consideration.",
+      "audience": "Platform architects and MCP application developers"
+    },
+    "verifiedAt": "2026-10-10",
+    "status": "published",
+    "indexedAt": "2026-10-10T11:45:00.000Z"
+  },
+  {
+    "slug": "flutter-genui-0-9-migration-guide",
+    "eventDate": "2026-05-14",
+    "publishedAt": "2026-05-14",
+    "canonicalUrl": "https://flutter.dev/blog/new-updates-to-a2ui-and-flutters-genui-package",
+    "sourceName": "Flutter Blog",
+    "project": "Flutter GenUI",
+    "category": "framework",
+    "evidence": "official",
+    "zh": {
+      "title": "Flutter 公布 GenUI 0.9 迁移指南，拆分渲染与模型连接",
+      "summary": "Flutter 官方解释 GenUI 0.9 如何采用 A2UI 0.9，并从结构化输出优先转向提示词驱动的消息生成。",
+      "why": "模型连接、重试与界面状态分离后，应用可以独立测试和替换各层。",
+      "details": "ContentGenerator 被移除，职责拆为 SurfaceController、A2uiTransportAdapter 与 Conversation。PromptBuilder 帮助构造目录与协议提示词。",
+      "caveat": "5 月 14 日是指南发表日，不是经核验的软件首次发行日；升级包含破坏性 API 变化。",
+      "audience": "Flutter 开发者、跨端架构师"
+    },
+    "en": {
+      "title": "Flutter explains GenUI 0.9 migration and transport separation",
+      "summary": "Flutter published guidance on GenUI 0.9, adopting A2UI 0.9 and prompt-driven message generation.",
+      "why": "Separating rendering and model connections supports replacement and isolated testing.",
+      "details": "SurfaceController, A2uiTransportAdapter and Conversation replace ContentGenerator responsibilities. PromptBuilder supplies catalog and protocol instructions.",
+      "caveat": "May 14 is the guide publication date, not a verified first package release date; migration is breaking.",
+      "audience": "Flutter developers and cross-platform architects"
+    },
+    "verifiedAt": "2026-10-10",
+    "status": "published",
+    "indexedAt": "2026-10-10T11:45:00.000Z"
+  },
+  {
+    "slug": "a2ui-0-9-release",
+    "eventDate": "2026-04-17",
+    "publishedAt": "2026-04-17",
+    "canonicalUrl": "https://developers.googleblog.com/en/a2ui-v0-9-generative-ui/",
+    "sourceName": "Google Developers Blog",
+    "project": "A2UI",
+    "category": "protocol",
+    "evidence": "official",
+    "zh": {
+      "title": "A2UI 0.9 加强组件目录、双向同步与多框架渲染",
+      "summary": "Google 发布 A2UI 0.9，增加共享 web-core、官方 React 渲染器与 Agent SDK，继续把 UI 意图与实现分离。",
+      "why": "开发者可用已有设计系统承接智能体输出，降低对单一前端框架的依赖。",
+      "details": "协议增加客户端函数、客户端到服务端的数据同步及模块化 schema。Agent SDK 支持版本协商、动态目录和增量流解析。",
+      "caveat": "跨框架支持仍需客户端实现和应用适配；公告中的生态案例不是独立的安全或性能证明。",
+      "audience": "设计系统团队、协议与应用开发者"
+    },
+    "en": {
+      "title": "A2UI 0.9 strengthens catalogs, synchronization and rendering",
+      "summary": "Google released A2UI 0.9 with shared web-core, an official React renderer and an Agent SDK.",
+      "why": "Existing design systems can render agent intent across frontend frameworks.",
+      "details": "The update adds client functions, data synchronization and modular schemas. The SDK handles version negotiation, catalogs and incremental parsing.",
+      "caveat": "Cross-framework support still needs client integration; examples are not independent security or performance validation.",
+      "audience": "Design-system teams and application developers"
+    },
+    "verifiedAt": "2026-10-10",
+    "status": "published",
+    "indexedAt": "2026-10-10T11:45:00.000Z"
+  },
+  {
+    "slug": "mcp-apps-official-extension",
+    "eventDate": "2026-01-26",
+    "publishedAt": "2026-01-26",
+    "canonicalUrl": "https://blog.modelcontextprotocol.io/posts/2026-01-26-mcp-apps/",
+    "sourceName": "MCP Core Maintainers",
+    "project": "MCP Apps",
+    "category": "protocol",
+    "evidence": "official",
+    "zh": {
+      "title": "MCP Apps 成为正式扩展，让工具返回交互界面",
+      "summary": "MCP 维护者宣布 MCP Apps 正式上线，为工具提供在对话内展示表单、图表和工作流的标准连接方式。",
+      "why": "工具结果不必只靠文字转述，用户可以直接操作数据和界面。",
+      "details": "工具通过 UI 元数据引用 ui:// 资源，宿主在沙箱 iframe 中呈现。界面与宿主使用基于 postMessage 的 JSON-RPC 双向通信。",
+      "caveat": "需要支持该扩展的宿主；可交互界面既可能预先编写，也可能动态生成，不能一概视为模型生成代码。",
+      "audience": "MCP 服务开发者、对话产品团队"
+    },
+    "en": {
+      "title": "MCP Apps formalizes interactive tool interfaces",
+      "summary": "MCP maintainers launched an official extension for forms, visualizations and workflows inside conversations.",
+      "why": "Users can manipulate tool results directly instead of requesting every change in text.",
+      "details": "Tool metadata references ui:// resources rendered in sandboxed iframes. JSON-RPC over postMessage connects the interface and host.",
+      "caveat": "Host support is required; interactive apps can be pre-authored rather than model-generated.",
+      "audience": "MCP server developers and conversational product teams"
+    },
+    "verifiedAt": "2026-10-10",
+    "status": "published",
+    "indexedAt": "2026-10-10T11:45:00.000Z"
+  }
+]

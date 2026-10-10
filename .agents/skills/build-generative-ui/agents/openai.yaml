@@ -1,0 +1,4 @@
+interface:
+  display_name: "Build Generative UI"
+  short_description: "Design and verify safe agent-driven interfaces"
+  default_prompt: "Use $build-generative-ui to design a production-ready Generative UI feature."
