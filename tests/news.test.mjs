@@ -10,6 +10,19 @@ import { drainQueue, mailWebhook, manageSubscription, queueDigest, subscribe, to
 function database(){const raw=new DatabaseSync(':memory:');raw.exec(readFileSync(new URL('../drizzle/0000_medical_katie_power.sql',import.meta.url),'utf8'));const db={prepare(sql){let args=[];return {bind(...a){args=a;return this},async first(){return raw.prepare(sql).get(...args)||null},async all(){return {results:raw.prepare(sql).all(...args)}},async run(){return {meta:raw.prepare(sql).run(...args)}}}},async batch(statements){raw.exec('BEGIN');try{const r=[];for(const s of statements)r.push(await s.run());raw.exec('COMMIT');return r;}catch(e){raw.exec('ROLLBACK');throw e;}}};return db;}
 const config={enabled:false,apiKey:'',sender:'',secret:'',webhookSecret:''};
 const active={enabled:true,apiKey:'test-only',sender:'test@example.test',secret:'test-only-not-production',webhookSecret:'test-only-webhook'};
+test('source recovery clears errors; later failure preserves the last successful check',async()=>{
+  const db=database();
+  const source={id:'recovering-source',url:'https://example.com/news',name:'Recovering source',kind:'official'};
+  await operate(db,'source',{...source,success:false,error:'403'},config);
+  await operate(db,'source',{...source,success:true},config);
+  const recovered=await db.prepare('SELECT * FROM sources WHERE id=?').bind(source.id).first();
+  assert.equal(recovered.error,null);
+  assert.ok(recovered.successful_at);
+  await operate(db,'source',{...source,success:false},config);
+  const failed=await db.prepare('SELECT * FROM sources WHERE id=?').bind(source.id).first();
+  assert.equal(failed.error,'Source unavailable');
+  assert.equal(failed.successful_at,recovered.successful_at);
+});
 test('25 source-reviewed bilingual events validate with separate dates',()=>{assert.ok(seed.length>=20);for(const x of seed)newsSchema.parse(x);assert.equal(new Set(seed.map(x=>x.canonicalUrl)).size,seed.length);assert.ok(seed.filter(x=>x.eventDate>='2026-07-12').length>=18);});
 test('invalid and future dates and nonpublic source URLs are rejected',()=>{for(const patch of [{eventDate:'2026-02-31'},{publishedAt:'2099-01-01'},{canonicalUrl:'http://example.com'},{canonicalUrl:'https://127.0.0.1/'},{canonicalUrl:'https://x.local/'}])assert.throws(()=>newsSchema.parse({...seed[0],...patch}));assert.equal(canonicalUrl('https://example.com/post/?utm_source=x#abc'),'https://example.com/post');});
 test('seed and replay are idempotent; multi-source merges keep one event and history',async()=>{const db=database();await seedDatabase(db);await seedDatabase(db);assert.equal((await articles(db)).length,25);const before=(await db.prepare('SELECT * FROM revisions').all()).results.length;const existing=(await articles(db)).find(x=>x.slug===seed[0].slug);assert.equal((await upsertNews(db,existing,'Recheck same article')).changed,false);const merged=await upsertNews(db,{...existing,slug:'another-source',canonicalUrl:'https://example.com/second-source'},'Merge another source',existing.slug);assert.equal(merged.slug,existing.slug);assert.equal((await articles(db)).length,25);assert.equal((await db.prepare('SELECT * FROM revisions').all()).results.length,before+1);});

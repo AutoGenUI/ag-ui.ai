@@ -104,7 +104,7 @@ export async function operate(
         s.kind,
         now,
         s.success ? now : null,
-        s.error || "Source unavailable",
+        s.success ? null : s.error || "Source unavailable",
       )
       .run();
     return { saved: s.id };
