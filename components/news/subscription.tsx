@@ -198,8 +198,8 @@ export function Subscription({ locale }: { locale: Locale }) {
         <p role="status">{message}</p>
         <p className="n-small">
           {zh
-            ? "无需注册账号。不使用邮件打开追踪像素。"
-            : "No account required. No email open-tracking pixels."}
+            ? "无需注册账号。邮件由 Brevo 投递，可能记录打开与点击；本站不依据这些记录决定发信或判断已读。"
+            : "No account required. Brevo delivers email and may record opens and clicks. We do not use these records to decide whether to send email or as proof that an email was read."}
         </p>
       </div>
       <aside className="n-rss-box">

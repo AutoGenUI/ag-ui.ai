@@ -16,8 +16,8 @@ export default async function Privacy({
         eyebrow="PRIVACY"
         title={
           zh
-            ? "了解网站，不追踪个人。"
-            : "Measure the site, respect the reader."
+            ? "了解网站与邮件数据的使用。"
+            : "How site and email data are used."
         }
         description={
           zh
@@ -40,8 +40,8 @@ export default async function Privacy({
         <h2>{zh ? "邮件订阅" : "Email subscriptions"}</h2>
         <p>
           {zh
-            ? "邮件功能目前待启用，不收集新邮箱。启用后，邮箱仅用于确认订阅、精选周报和订阅偏好；投递由 Brevo 处理。每封邮件提供退订与偏好链接，不启用邮件打开追踪像素。退订、投诉和硬退信将停止后续投递。"
-            : "Email is awaiting activation; no new addresses are being collected. Once enabled, addresses will be used for confirmation, the weekly digest and preferences, with delivery handled by Brevo. Every email includes unsubscribe and preference links, without open-tracking pixels. Unsubscribes, complaints and hard bounces stop future delivery."}
+            ? "公众邮件订阅目前待启用，不收集公众邮箱。启用后，邮箱用于确认订阅、精选周报和订阅偏好。邮件由 Brevo 投递，Brevo 可能记录邮件打开与链接点击。本站不依据这些记录决定发信，也不将其作为已读证明。每封邮件提供退订与偏好链接；退订、投诉和硬退信将停止后续投递。"
+            : "Public email subscriptions are awaiting activation; we are not collecting public subscribers’ addresses. Once enabled, addresses are used for confirmation, the weekly digest and preferences. Brevo delivers email and may record email opens and link clicks. This site does not use these records to decide whether to send email or as proof that an email was read. Every email includes unsubscribe and preference links. Unsubscribes, complaints and hard bounces stop future delivery."}
         </p>
         <p>
           {zh
