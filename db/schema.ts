@@ -48,6 +48,7 @@ export const runs = sqliteTable("runs", {
 });
 export const subscribers = sqliteTable("subscribers", {
   id: text("id").primaryKey(),
+  isTest: integer("is_test").notNull().default(0),
   email: text("email").notNull().unique(),
   locale: text("locale").notNull(),
   topics: text("topics").notNull(),
@@ -59,11 +60,13 @@ export const subscribers = sqliteTable("subscribers", {
 });
 export const editions = sqliteTable("editions", {
   id: text("id").primaryKey(),
+  isTest: integer("is_test").notNull().default(0),
   payload: text("payload").notNull(),
   createdAt: text("created_at").notNull(),
 });
 export const deliveries = sqliteTable("deliveries", {
   id: text("id").primaryKey(),
+  isTest: integer("is_test").notNull().default(0),
   subscriberId: text("subscriber_id").notNull(),
   editionId: text("edition_id"),
   kind: text("kind").notNull(),

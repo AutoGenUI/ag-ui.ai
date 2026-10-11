@@ -67,7 +67,7 @@ The home routes now serve independent Generative UI news. The academy is retaine
 - `POST /mcp` exposes `newsroom_read` and `newsroom_write` to the authenticated Site owner only. `/admin` is the owner operations screen. Public discovery does not grant tool access.
 - `/en/feed.xml`, `/zh/feed.xml` and `/feed.xml` serve dynamic RSS. `/legacy-feed.xml` retains the old atlas feed.
 - Automated editorial policy and tool contracts: [public/automation.md](public/automation.md).
-- Email is **pending activation**. No mailbox collection or sends occur until all gates are configured. RSS works independently.
+- Public email subscription is **pending activation**. No public mailbox collection or ordinary sends occur until all gates are configured. A separately gated owner acceptance operation can send only to its server-configured test recipient. RSS works independently.
 
 ### Runtime configuration
 
@@ -75,12 +75,21 @@ Set secrets only through Sites environment variables. `SITE_OWNER_EMAIL` authori
 
 Future email activation requires `BREVO_API_KEY`, `BREVO_SENDER_EMAIL`, `BREVO_WEBHOOK_SECRET`, `BREVO_DOMAIN_VERIFIED=true`, `EMAIL_ACCEPTANCE_PASSED=true` and `EMAIL_ENABLED=true`. Keep these last gates false until a real mailbox confirms, receives a digest, changes preferences and unsubscribes, and failure callbacks are verified. Disable provider open/click tracking in Brevo. Configure transactional webhooks with bearer authentication to `/api/brevo/webhook`; subscribe to delivered, hardBounce, softBounce, spam, invalid, blocked and unsubscribed. Official contracts: [secured webhooks](https://developers.brevo.com/docs/secured-webhooks), [transactional events](https://developers.brevo.com/docs/transactional-webhooks).
 
+For real delivery acceptance before public activation, also configure `EMAIL_TEST_RECIPIENT` as a server-side secret containing the one explicitly authorized test address. Keep `EMAIL_ENABLED=false` and `EMAIL_ACCEPTANCE_PASSED=false`. The owner-only `newsroom_write` / `/api/admin` operation `mail-test` requires a verified domain, sender, API key, webhook secret and existing subscription signing secret. It cannot take a recipient argument, enable public email, or drain the production queue. Do not invoke it from scheduled editorial tasks.
+
+1. Call `mail-test` with `{"action":"status"}` to check readiness. Responses contain delivery states only, never the recipient, credentials or signed links.
+2. Call with `{"action":"confirmation","runId":"acceptance-unique-stable-id","locale":"zh","topics":["model","product"]}`. The authorized recipient opens the actual email and confirms through the signed link. The same preference and unsubscribe page works while public signup is disabled.
+3. After confirmation, call with `{"action":"weekly","runId":"acceptance-unique-stable-id"}`. This sends a labeled sample of up to five real published events matching the saved preferences. Reuse the exact run ID on retry; submitted, delivered, failed or uncertain records are not resent. The delivery callback and actual inbox receipt must both be checked; submitted is not delivered.
+4. Verify preference changes, successful unsubscribe, authenticated callbacks, and suppression. Test records are explicitly marked in the database and excluded from public weekly editions, ordinary draining, subscriber counts and conversion statistics. They still consume the same conservative provider quota. Ordinary draining cannot flush test mail, even after public email is enabled. A changed configured recipient cannot flush the old test recipient's queue. Unsubscribed or suppressed test recipients are not reactivated by a new run ID. A production subscriber cannot be repurposed for testing.
+5. Only after documenting real acceptance results, set the public activation gates. The test operation never changes these gates. If a confirmation expires, an explicitly requested new run ID can replace a known expired confirmation; uncertain submissions require provider reconciliation and are never automatically retried. Test identities remain test identities and are never automatically enrolled in the public newsletter.
+
 ### Database and acceptance
 
 Schema-only Drizzle migrations live in `drizzle/`. Sites applies them during deployment. Fixed reviewed seed data is inserted idempotently on initial newsroom access; ordinary updates use owner tools, without rebuilds. Never reapply an existing migration. For a fresh local preview database, build once and apply each pending SQL file with:
 
 ```sh
 WRANGLER_LOG_PATH=.wrangler/wrangler.log node node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0000_medical_katie_power.sql
+WRANGLER_LOG_PATH=.wrangler/wrangler.log node node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0001_mail_acceptance_isolation.sql
 npm run dev -- --port 4173
 ```
 

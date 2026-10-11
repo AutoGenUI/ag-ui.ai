@@ -29,6 +29,8 @@ export function mailConfig(): MailConfig {
     sender: setting("BREVO_SENDER_EMAIL"),
     secret: setting("SUBSCRIPTION_SECRET"),
     webhookSecret: setting("BREVO_WEBHOOK_SECRET"),
+    domainVerified: setting("BREVO_DOMAIN_VERIFIED") === "true",
+    testRecipient: setting("EMAIL_TEST_RECIPIENT"),
   };
 }
 const toolList = [
@@ -45,7 +47,7 @@ const toolList = [
   {
     name: "newsroom_write",
     description:
-      "Owner: maintain verified bilingual news and trends, source discovery/check status, run checkpoints and weekly delivery queue. Read https://ag-ui.ai/automation.md for the operation contract. Publish requires article, reason and verification {sourceRead,dateConfirmed,conflicts}; mergeInto folds multiple sources into one event.",
+      "Owner: maintain verified bilingual news and trends, source discovery/check status, run checkpoints and weekly delivery queue. Read https://ag-ui.ai/automation.md for the operation contract. Publish requires article, reason and verification {sourceRead,dateConfirmed,conflicts}; mergeInto folds multiple sources into one event. mail-test is only for explicitly authorized owner acceptance: {action:status|confirmation|weekly,runId?:stable-id,locale?:zh|en,topics?:categories}; recipient is server-configured and cannot be supplied here. Never use mail-test in scheduled editorial tasks.",
     inputSchema: {
       type: "object",
       properties: {
