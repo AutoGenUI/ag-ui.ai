@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
+import * as nodeModule from 'node:module';
 import { newsSchema, canonicalUrl, singaporeDay } from '../lib/news/core.ts';
 import { articles, upsertNews, seedDatabase, seed, freshness } from '../lib/news/store.ts';
 import { operate } from '../lib/news/operations.ts';
@@ -11,6 +12,88 @@ function database(){const raw=new DatabaseSync(':memory:');for(const entry of JS
 const config={enabled:false,apiKey:'',sender:'',secret:'',webhookSecret:''};
 const active={enabled:true,apiKey:'test-only',sender:'test@example.test',secret:'test-only-not-production',webhookSecret:'test-only-webhook'};
 const acceptance={...active,enabled:false,domainVerified:true,testRecipient:'acceptance@example.test'};
+async function webhookFixture(db, label, isTest=0) {
+  const email=`fixture-${label}@example.test`, subscriberId=`fixture-${label}`, now='2000-01-01T00:00:00.000Z';
+  await db.prepare("INSERT INTO subscribers(id,email,locale,topics,status,created_at,confirmed_at,is_test) VALUES(?,?,'en','[\"product\"]','confirmed',?,?,?)")
+    .bind(subscriberId,email,now,now,isTest).run();
+  for(const status of ['submitted','queued']) await db.prepare("INSERT INTO deliveries(id,subscriber_id,kind,status,provider_id,created_at,updated_at,is_test) VALUES(?,?,'weekly',?,?,?,?,?)")
+    .bind(`${subscriberId}-${status}`,subscriberId,status,status==='submitted'?`${subscriberId}-message`:null,now,now,isTest).run();
+  return {email,subscriberId,messageId:`${subscriberId}-message`};
+}
+test('transactional webhook spellings preserve all seven events and suppress invalid_email',async()=>{
+  const cases=[
+    ['delivered','confirmed','delivered','queued'],
+    ['hardBounce','suppressed','failed','cancelled'],['hard_bounce','suppressed','failed','cancelled'],
+    ['softBounce','confirmed','failed','queued'],['soft_bounce','confirmed','failed','queued'],
+    ['spam','suppressed','failed','cancelled'],
+    ['invalid','suppressed','failed','cancelled'],['invalid_email','suppressed','failed','cancelled'],['invalidEmail','suppressed','failed','cancelled'],
+    ['blocked','confirmed','failed','queued'],['unsubscribed','unsubscribed','failed','cancelled'],
+  ];
+  for(const [event,subscriberStatus,deliveryStatus,queuedStatus] of cases) for(const isTest of [0,1]) {
+    const db=database(),target=await webhookFixture(db,'target',isTest),other=await webhookFixture(db,'other',1-isTest);
+    const beforeOther=(await db.prepare('SELECT * FROM deliveries WHERE subscriber_id=? ORDER BY id').bind(other.subscriberId).all()).results;
+    assert.deepEqual(await mailWebhook(db,{event,email:target.email,'message-id':target.messageId}),{received:1});
+    assert.equal((await db.prepare('SELECT status FROM subscribers WHERE id=?').bind(target.subscriberId).first()).status,subscriberStatus,event);
+    assert.equal((await db.prepare('SELECT status FROM deliveries WHERE id=?').bind(`${target.subscriberId}-submitted`).first()).status,deliveryStatus,event);
+    assert.equal((await db.prepare('SELECT status FROM deliveries WHERE id=?').bind(`${target.subscriberId}-queued`).first()).status,queuedStatus,event);
+    assert.equal((await db.prepare('SELECT status FROM subscribers WHERE id=?').bind(other.subscriberId).first()).status,'confirmed');
+    assert.deepEqual((await db.prepare('SELECT * FROM deliveries WHERE subscriber_id=? ORDER BY id').bind(other.subscriberId).all()).results,beforeOther);
+    if(event==='invalid_email') assert.equal((await db.prepare('SELECT error FROM deliveries WHERE id=?').bind(`${target.subscriberId}-submitted`).first()).error,'invalid');
+  }
+});
+test('unmatched synthetic delivered callbacks never create or update production or acceptance records',async()=>{
+  const db=database(),fixtures=[await webhookFixture(db,'production',0),await webhookFixture(db,'acceptance',1)];
+  const snapshot=async()=>({subscribers:(await db.prepare('SELECT * FROM subscribers ORDER BY id').all()).results,deliveries:(await db.prepare('SELECT * FROM deliveries ORDER BY id').all()).results});
+  const before=await snapshot();
+  for(const fixture of fixtures) {
+    assert.deepEqual(await mailWebhook(db,{event:'delivered',email:fixture.email,'message-id':'fixture-synthetic-unknown-message','X-Mailin-custom':'delivery:fixture-synthetic-unknown-delivery'}),{received:1});
+    assert.deepEqual(await snapshot(),before);
+    assert.deepEqual(await mailWebhook(db,{event:'fixture_unknown_event',email:fixture.email,'message-id':fixture.messageId}),{received:1});
+    assert.deepEqual(await snapshot(),before);
+  }
+});
+test('webhook HTTP route accepts the configured Bearer and rejects other credentials before reading a body',async(t)=>{
+  if(typeof nodeModule.registerHooks!=='function') {
+    t.skip('This isolated Cloudflare-binding fixture requires node:module.registerHooks (Node 22.15+).');
+    return;
+  }
+  const db=database(),fixture=await webhookFixture(db,'http-callback',1);
+  const state={db,secret:'fixture-only-not-a-production-webhook-secret',reads:0,databaseCalls:0};
+  globalThis.__agUiWebhookRuntimeFixture=state;
+  const runtimeUrl=new URL('../lib/news/runtime.ts',import.meta.url).href;
+  // Only the Cloudflare binding adapter is replaced. The HTTP route,
+  // equalSecret, payload schema and D1 mutations are the application code.
+  const hooks=nodeModule.registerHooks({load(url,context,nextLoad){
+    if(url!==runtimeUrl) return nextLoad(url,context);
+    return {format:'module',shortCircuit:true,source:`
+      const fixture=globalThis.__agUiWebhookRuntimeFixture;
+      export const setting=key=>key==='BREVO_WEBHOOK_SECRET'?fixture.secret:'';
+      export const database=()=>{fixture.databaseCalls++;return fixture.db;};
+      export const isOwner=()=>false;
+      export const originAllowed=()=>false;
+      export const json=(data,status=200,headers={})=>Response.json(data,{status,headers:{'Cache-Control':'no-store',...headers}});
+      export const readBody=async request=>{fixture.reads++;return request.json();};
+    `};
+  }});
+  try {
+    const {newsApi}=await import('../lib/news/api.ts');
+    const request=(authorization,body)=>new Request('https://fixture.example.test/api/brevo/webhook',{method:'POST',headers:authorization?{authorization}:{},body});
+    for(const authorization of ['',`Bearer fixture-wrong-secret`,state.secret]) {
+      const response=await newsApi(request(authorization,'not-json'));
+      assert.equal(response.status,401);
+      assert.deepEqual(await response.json(),{error:'Unauthorized'});
+    }
+    assert.equal(state.reads,0);assert.equal(state.databaseCalls,0);
+    const payload={event:'delivered',email:fixture.email,'message-id':fixture.messageId};
+    const response=await newsApi(request(`Bearer ${state.secret}`,JSON.stringify(payload)));
+    assert.equal(response.status,200);assert.deepEqual(await response.json(),{received:1});
+    assert.equal((await db.prepare('SELECT status FROM deliveries WHERE id=?').bind(`${fixture.subscriberId}-submitted`).first()).status,'delivered');
+    assert.equal(state.reads,1);assert.equal(state.databaseCalls,1);
+    state.secret='';
+    assert.equal((await newsApi(request('Bearer ',JSON.stringify(payload)))).status,401);
+    assert.equal(state.reads,1);assert.equal(state.databaseCalls,1);
+  } finally {hooks.deregister();delete globalThis.__agUiWebhookRuntimeFixture;}
+});
 test('concurrent acceptance run IDs claim one confirmation and preserve its signed link',async()=>{
   const db=database(),old=globalThis.fetch,sent=[];
   globalThis.fetch=async(_url,options)=>{sent.push(JSON.parse(options.body));return Response.json({messageId:'concurrent-test'});};

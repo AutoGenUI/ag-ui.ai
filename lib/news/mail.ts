@@ -476,7 +476,10 @@ export async function mailWebhook(db: Database, input: unknown) {
     .max(100)
     .parse(Array.isArray(input) ? input : [input]);
   for (const e of events) {
-    const event = e.event.toLowerCase().replaceAll("_", "");
+    const normalized = e.event.toLowerCase().replaceAll("_", "");
+    // Brevo's webhook payload calls the invalid-address event invalid_email,
+    // while subscriptions and older payloads use invalid.
+    const event = normalized === "invalidemail" ? "invalid" : normalized;
     const stop = ["hardbounce", "spam", "unsubscribed", "invalid"].includes(
       event,
     );
