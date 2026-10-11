@@ -2,6 +2,18 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 const base=process.env.SITE_TEST_BASE_URL||'http://localhost:4173';
 const render=(path,init={})=>fetch(new URL(path,base),{...init,redirect:'manual'});
+test('anonymous users cannot invoke owner mail acceptance and public signup remains closed',async()=>{
+  const headers={origin:base,'content-type':'application/json'};
+  for(const action of ['status','confirmation','weekly']){
+    const args={action,runId:'anonymous-test-run'};
+    const admin=await render('/api/admin',{method:'POST',headers,body:JSON.stringify({operation:'mail-test',arguments:args})});
+    assert.equal(admin.status,403);
+    const mcp=await render('/mcp',{method:'POST',headers,body:JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/call',params:{name:'newsroom_write',arguments:{operation:'mail-test',arguments:args}}})});
+    assert.equal(mcp.status,403);
+  }
+  const signup=await render('/api/subscription',{method:'POST',headers,body:JSON.stringify({email:'test-only@example.test',locale:'zh',topics:['product'],consent:true,website:''})});
+  assert.equal((await signup.json()).status,'pending-activation');
+});
 test('root redirects to English and both newsroom locales render semantic content',async()=>{const root=await render('/');assert.equal(root.status,307);assert.equal(new URL(root.headers.get('location'),base).pathname,'/en');for(const [locale,title] of [['en','The next interface.'],['zh','追踪界面的']]){const r=await render('/'+locale);assert.equal(r.status,200);const text=(await r.text()).replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'');assert.ok(text.includes(title));assert.match(text,/Intelligent UI/);assert.match(text,/OUI-1/);}});
 test('news, timeline, trends, knowledge and retained atlas routes render',async()=>{for(const path of ['/en/news','/zh/timeline','/en/trends','/zh/knowledge','/en/sources','/en/map','/zh/compare','/en/learn','/en/updates','/en/lab/ag-ui-events','/en/technologies/ag-ui','/en/learn/academy']){const r=await render(path);assert.equal(r.status,200,path);const html=await r.text();assert.doesNotMatch(html,/Internal Server Error/);}});
 test('article records dates, source labels, limitations, canonical and language alternatives',async()=>{const r=await render('/en/news/openai-gpt6-intelligent-ui');assert.equal(r.status,200);const text=await r.text();for(const value of ['Why it matters','2026-10-07','Source published','Indexed','Verified','Original sources','THE LIMITS OF THE EVIDENCE'])assert.ok(text.includes(value),value);assert.match(text,/https:\/\/ag-ui.ai\/en\/news\/openai-gpt6-intelligent-ui/);assert.match(text,/zh-Hans/);});

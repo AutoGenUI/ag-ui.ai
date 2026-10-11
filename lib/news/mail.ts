@@ -9,6 +9,8 @@ export type MailConfig = {
   sender: string;
   secret: string;
   webhookSecret: string;
+  domainVerified?: boolean;
+  testRecipient?: string;
 };
 export const preferenceSchema = z.object({
   locale: z.enum(["en", "zh"]),
@@ -27,10 +29,18 @@ type Subscriber = {
   status: string;
   created_at: string;
   token_expires: string | null;
+  is_test?: number;
 };
 export function mailReady(c: MailConfig) {
   return (
     c.enabled && !!c.apiKey && !!c.sender && !!c.secret && !!c.webhookSecret
+  );
+}
+export function mailTestReady(c: MailConfig) {
+  return (
+    c.domainVerified === true &&
+    !!c.apiKey && !!c.sender && !!c.secret && !!c.webhookSecret &&
+    z.string().email().safeParse(c.testRecipient?.trim()).success
   );
 }
 export async function tokenFor(s: Subscriber, secret: string, kind = "manage") {
@@ -57,7 +67,7 @@ export async function subscribe(
     .prepare("SELECT * FROM subscribers WHERE email=?")
     .bind(email)
     .first<Subscriber>();
-  if (s && s.status !== "pending") return { status: "check-inbox" };
+  if (s && (s.is_test || s.status !== "pending")) return { status: "check-inbox" };
   const now = new Date().toISOString(),
     expires = new Date(Date.now() + 86400000).toISOString();
   if (!s) {
@@ -170,7 +180,7 @@ export async function queueDigest(db: Database, week: string) {
     .first<{ payload: string }>();
   if (!ed) {
     const prev = await db
-      .prepare("SELECT payload FROM editions ORDER BY id DESC LIMIT 1")
+      .prepare("SELECT payload FROM editions WHERE is_test=0 ORDER BY id DESC LIMIT 1")
       .first<{ payload: string }>();
     const from = prev
       ? JSON.parse(prev.payload).through
@@ -194,7 +204,7 @@ export async function queueDigest(db: Database, week: string) {
   const items: NewsItem[] = JSON.parse(ed.payload).items;
   const subscribers = (
     await db
-      .prepare("SELECT * FROM subscribers WHERE status='confirmed'")
+      .prepare("SELECT * FROM subscribers WHERE status='confirmed' AND is_test=0")
       .all<Subscriber>()
   ).results;
   let queued = 0;
@@ -212,25 +222,127 @@ export async function queueDigest(db: Database, week: string) {
   }
   return { queued, edition: week };
 }
+// This entry point is exposed only by the existing owner-authenticated MCP and
+// admin operation dispatcher. It cannot take an email address or change gates.
+export async function mailTest(
+  db: Database,
+  input: unknown,
+  c: MailConfig,
+) {
+  const a = z.object({
+    action: z.enum(["status", "confirmation", "weekly"]),
+    runId: z.string().regex(/^[a-z0-9-]{8,80}$/).optional(),
+    locale: z.enum(["en", "zh"]).default("zh"),
+    topics: z.array(z.enum(categories)).min(1).max(6).default([...categories]),
+  }).strict().parse(input);
+  const ready = mailTestReady(c);
+  const recipient = c.testRecipient?.trim().toLowerCase() || "";
+  let s = await db.prepare("SELECT * FROM subscribers WHERE email=?")
+    .bind(recipient).first<Subscriber>();
+  const status = async () => ({
+    ready,
+    publicEnabled: mailReady(c),
+    subscriberStatus: s?.is_test === 1 ? s.status : null,
+    deliveries: s?.is_test === 1 ? (await db.prepare(
+      "SELECT kind,status,attempted_at,updated_at,error FROM deliveries WHERE subscriber_id=? AND is_test=1 ORDER BY created_at DESC LIMIT 20",
+    ).bind(s.id).all()).results : [],
+  });
+  if (a.action === "status") return status();
+  if (!ready) return { status: "test-not-configured", ...(await status()) };
+  if (!a.runId) throw new Error("A stable test runId is required");
+  // Never repurpose a real subscriber, nor undo a test recipient's opt-out.
+  if (s && s.is_test !== 1) throw new Error("Test recipient is already a production subscriber");
+  if (s && ["suppressed", "unsubscribed"].includes(s.status))
+    return { status: "recipient-suppressed", ...(await status()) };
+  const now = new Date().toISOString();
+  if (!s) {
+    if (a.action !== "confirmation") throw new Error("Confirm the test mailbox first");
+    await db.prepare(
+      "INSERT OR IGNORE INTO subscribers(id,email,locale,topics,status,created_at,token_expires,is_test) VALUES(?,?,?,?,'pending',?,?,1)",
+    ).bind(crypto.randomUUID(), recipient, a.locale, JSON.stringify(a.topics), now,
+      new Date(Date.now() + 86400000).toISOString()).run();
+    s = await db.prepare("SELECT * FROM subscribers WHERE email=?").bind(recipient).first<Subscriber>();
+    if (!s || s.is_test !== 1) throw new Error("Test recipient unavailable");
+  }
+  const kind = a.action === "confirmation" ? "confirmation" : "weekly";
+  const deliveryId = `test:${a.runId}:${s.id}:${kind}`;
+  const existing = await db.prepare("SELECT id FROM deliveries WHERE id=?").bind(deliveryId).first();
+  if (!existing) {
+    if (kind === "confirmation") {
+      if (s.status !== "pending") return { status: "already-confirmed", ...(await status()) };
+      // A new run ID is not permission to retry an uncertain submission or
+      // create another live confirmation. Expired, known submissions may be
+      // replaced by an explicitly requested new run.
+      const unresolved = await db.prepare(
+        "SELECT id FROM deliveries WHERE subscriber_id=? AND is_test=1 AND kind='confirmation' AND (status IN ('sending','uncertain') OR (status IN ('queued','submitted','delivered') AND ? > ?)) LIMIT 1",
+      ).bind(s.id, s.token_expires || "", now).first();
+      if (unresolved) return { status: "confirmation-already-pending", ...(await status()) };
+      const expires = new Date(Date.parse(now) + 86400000).toISOString();
+      await db.batch([
+        // D1 executes the batch transactionally: a second run must observe the
+        // winner before it can create a live confirmation for this recipient.
+        db.prepare("INSERT OR IGNORE INTO deliveries(id,subscriber_id,kind,status,created_at,updated_at,is_test) SELECT ?,s.id,'confirmation','queued',?,?,1 FROM subscribers s WHERE s.id=? AND s.is_test=1 AND s.status='pending' AND NOT EXISTS (SELECT 1 FROM deliveries d WHERE d.subscriber_id=s.id AND d.is_test=1 AND d.kind='confirmation' AND (d.status IN ('sending','uncertain') OR (d.status IN ('queued','submitted','delivered') AND s.token_expires>?)))")
+          .bind(deliveryId, now, now, s.id, now),
+        // created_at ties expiry rotation to this successful insertion. A
+        // same-millisecond replay computes the identical expiry, so cannot
+        // invalidate the winner's link. Later replays cannot rotate it.
+        db.prepare("UPDATE subscribers SET token_expires=? WHERE id=? AND is_test=1 AND status='pending' AND EXISTS (SELECT 1 FROM deliveries d WHERE d.id=? AND d.created_at=? AND d.status='queued')")
+          .bind(expires, s.id, deliveryId, now),
+        db.prepare("UPDATE deliveries SET status='cancelled',updated_at=? WHERE subscriber_id=? AND is_test=1 AND kind='confirmation' AND status='queued' AND id<>? AND EXISTS (SELECT 1 FROM deliveries winner WHERE winner.id=? AND winner.created_at=? AND winner.status='queued')")
+          .bind(now, s.id, deliveryId, deliveryId, now),
+      ]);
+    } else {
+      if (s.status !== "confirmed") throw new Error("Confirm the test mailbox first");
+      const topics: string[] = JSON.parse(s.topics);
+      const items = (await articles(db)).filter((x) => topics.includes(x.category)).slice(0, 5);
+      if (!items.length) return { status: "empty", ...(await status()) };
+      const editionId = `test:${a.runId}:${s.id}`;
+      await db.batch([
+        db.prepare("INSERT OR IGNORE INTO editions(id,payload,created_at,is_test) VALUES(?,?,?,1)")
+          .bind(editionId, JSON.stringify({ items, through: now }), now),
+        db.prepare("INSERT OR IGNORE INTO deliveries(id,subscriber_id,edition_id,kind,status,created_at,updated_at,is_test) VALUES(?,?,?,'weekly','queued',?,?,1)")
+          .bind(deliveryId, s.id, editionId, now, now),
+      ]);
+    }
+  }
+  const result = await deliverQueued(db, c, 1, { deliveryId, recipient });
+  s = await db.prepare("SELECT * FROM subscribers WHERE id=?").bind(s.id).first<Subscriber>();
+  return { ...result, ...(await status()) };
+}
 export async function drainQueue(db: Database, c: MailConfig, limit = 25) {
   if (!mailReady(c)) return { status: "pending-activation", submitted: 0 };
+  return deliverQueued(db, c, limit);
+}
+async function deliverQueued(
+  db: Database,
+  c: MailConfig,
+  limit: number,
+  test?: { deliveryId: string; recipient: string },
+) {
+  if (test ? !mailTestReady(c) : !mailReady(c))
+    return { status: "pending-activation", submitted: 0 };
   let submitted = 0;
+  const scope = test
+    ? "d.is_test=1 AND s.is_test=1 AND d.id=? AND lower(s.email)=?"
+    : "d.is_test=0 AND s.is_test=0";
+  const scopeArgs = test ? [test.deliveryId, test.recipient] : [];
   // A process lost after submission may have sent mail. Never blindly retry it.
   await db
     .prepare(
-      "UPDATE deliveries SET status='uncertain',error='Interrupted during submission; reconcile provider logs',updated_at=? WHERE status='sending' AND attempted_at<?",
+      `UPDATE deliveries SET status='uncertain',error='Interrupted during submission; reconcile provider logs',updated_at=? WHERE status='sending' AND attempted_at<? AND id IN (SELECT d.id FROM deliveries d JOIN subscribers s ON s.id=d.subscriber_id WHERE ${scope})`,
     )
-    .bind(new Date().toISOString(), new Date(Date.now() - 600000).toISOString())
+    .bind(new Date().toISOString(), new Date(Date.now() - 600000).toISOString(), ...scopeArgs)
     .run();
   const rows = (
     await db
       .prepare(
-        "SELECT d.*,s.email,s.locale,s.topics,s.status AS subscriber_status,s.created_at AS subscriber_created,s.token_expires FROM deliveries d JOIN subscribers s ON s.id=d.subscriber_id WHERE d.status='queued' ORDER BY CASE d.kind WHEN 'confirmation' THEN 0 ELSE 1 END,d.created_at LIMIT ?",
+        `SELECT d.*,s.email,s.locale,s.topics,s.status AS subscriber_status,s.created_at AS subscriber_created,s.token_expires FROM deliveries d JOIN subscribers s ON s.id=d.subscriber_id WHERE d.status='queued' AND ${scope} ORDER BY CASE d.kind WHEN 'confirmation' THEN 0 ELSE 1 END,d.created_at LIMIT ?`,
       )
-      .bind(Math.min(limit, 50))
+      .bind(...scopeArgs, Math.min(limit, 50))
       .all<Record<string, string>>()
   ).results;
   for (const d of rows) {
+    if (test && d.email.toLowerCase() !== c.testRecipient?.trim().toLowerCase()) continue;
     if (
       (d.kind === "weekly" && d.subscriber_status !== "confirmed") ||
       (d.kind === "confirmation" &&
@@ -247,9 +359,9 @@ export async function drainQueue(db: Database, c: MailConfig, limit = 25) {
       day = singaporeDay();
     const claim = await db
       .prepare(
-        "UPDATE deliveries SET status='sending',attempted_at=?,updated_at=? WHERE id=? AND status='queued' RETURNING id",
+        "UPDATE deliveries SET status='sending',attempted_at=?,updated_at=? WHERE id=? AND status='queued' AND EXISTS (SELECT 1 FROM subscribers s WHERE s.id=deliveries.subscriber_id AND ((deliveries.kind='weekly' AND s.status='confirmed') OR (deliveries.kind='confirmation' AND s.status='pending' AND s.token_expires>?))) RETURNING id",
       )
-      .bind(now, now, d.id)
+      .bind(now, now, d.id, now)
       .first();
     if (!claim) continue;
     const quota = await db
@@ -298,6 +410,10 @@ export async function drainQueue(db: Database, c: MailConfig, limit = 25) {
         .join("");
     }
     html += `<p><a href="${escapeHtml(manage)}">${d.locale === "zh" ? "退订 / 修改偏好" : "Unsubscribe / preferences"}</a></p><p>AG-UI.AI · Independent Generative UI intelligence · Sent with Brevo</p>`;
+    if (test) {
+      subject = `[${d.locale === "zh" ? "验收测试" : "Acceptance test"}] ${subject}`;
+      html += `<p>${d.locale === "zh" ? "这是所有者授权的邮件验收测试，不会将此邮箱加入正式周报名单。" : "This owner-authorized acceptance test does not add this mailbox to the production newsletter."}</p>`;
+    }
     try {
       const response = await fetch("https://api.brevo.com/v3/smtp/email", {
         method: "POST",

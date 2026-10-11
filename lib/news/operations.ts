@@ -9,7 +9,7 @@ import {
 } from "./store";
 import { publicUrl, singaporeDay } from "./core";
 import { statsSummary } from "./analytics";
-import { drainQueue, mailReady, queueDigest, type MailConfig } from "./mail";
+import { drainQueue, mailReady, mailTest, queueDigest, type MailConfig } from "./mail";
 import type { Database, Trend } from "./types";
 export const operations = [
   "context",
@@ -22,6 +22,7 @@ export const operations = [
   "run-finish",
   "digest",
   "drain",
+  "mail-test",
   "dashboard",
 ] as const;
 export async function operate(
@@ -175,6 +176,7 @@ export async function operate(
   }
   if (op === "digest") return queueDigest(db, z.string().parse(args.week));
   if (op === "drain") return drainQueue(db, mail);
+  if (op === "mail-test") return mailTest(db, args, mail);
   if (op === "dashboard")
     return {
       stats: await statsSummary(db, true),
@@ -195,14 +197,14 @@ export async function operate(
         deliveryStates: (
           await db
             .prepare(
-              "SELECT status,count(*) AS count FROM deliveries GROUP BY status",
+              "SELECT status,count(*) AS count FROM deliveries WHERE is_test=0 GROUP BY status",
             )
             .all()
         ).results,
         subscribers: (
           await db
             .prepare(
-              "SELECT status,count(*) AS count FROM subscribers GROUP BY status",
+              "SELECT status,count(*) AS count FROM subscribers WHERE is_test=0 GROUP BY status",
             )
             .all()
         ).results,

@@ -115,7 +115,7 @@ export async function statsSummary(db: Database, owner = false) {
     confirmed: (
       await db
         .prepare(
-          "SELECT substr(confirmed_at,1,10) AS day,count(*) AS confirmed FROM subscribers WHERE confirmed_at>=? GROUP BY day",
+          "SELECT substr(confirmed_at,1,10) AS day,count(*) AS confirmed FROM subscribers WHERE is_test=0 AND confirmed_at>=? GROUP BY day",
         )
         .bind(since)
         .all()
