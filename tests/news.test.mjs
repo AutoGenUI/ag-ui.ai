@@ -8,7 +8,16 @@ import { articles, upsertNews, seedDatabase, seed, freshness } from '../lib/news
 import { operate } from '../lib/news/operations.ts';
 import { recordMetric, statsSummary } from '../lib/news/analytics.ts';
 import { drainQueue, mailWebhook, manageSubscription, queueDigest, subscribe, tokenFor, mailTest, mailTestReady } from '../lib/news/mail.ts';
-function database(){const raw=new DatabaseSync(':memory:');for(const entry of JSON.parse(readFileSync(new URL('../drizzle/meta/_journal.json',import.meta.url),'utf8')).entries)raw.exec(readFileSync(new URL(`../drizzle/${entry.tag}.sql`,import.meta.url),'utf8'));const db={prepare(sql){let args=[];return {bind(...a){args=a;return this},async first(){return raw.prepare(sql).get(...args)||null},async all(){return {results:raw.prepare(sql).all(...args)}},_run(){return raw.prepare(sql).run(...args)},async run(){return {meta:this._run()}}}},async batch(statements){raw.exec('BEGIN');try{const r=statements.map(s=>({meta:s._run()}));raw.exec('COMMIT');return r;}catch(e){raw.exec('ROLLBACK');throw e;}}};return db;}
+function database(){const raw=new DatabaseSync(':memory:');
+  // Cloudflare D1 limits LIKE/GLOB patterns to 50 bytes; desktop SQLite's
+  // default is much larger. Enforce the actual LIKE limit in every fixture.
+  raw.function('like',(pattern,value)=>{
+    if(Buffer.byteLength(pattern,'utf8')>50) throw new Error('LIKE or GLOB pattern too complex');
+    if(value===null) return null;
+    const escaped=[...pattern].map(char=>char==='%'?'.*':char==='_'?'.':char.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('');
+    return new RegExp(`^${escaped}$`,'is').test(value)?1:0;
+  });
+  for(const entry of JSON.parse(readFileSync(new URL('../drizzle/meta/_journal.json',import.meta.url),'utf8')).entries)raw.exec(readFileSync(new URL(`../drizzle/${entry.tag}.sql`,import.meta.url),'utf8'));const db={prepare(sql){let args=[];return {bind(...a){args=a;return this},async first(){return raw.prepare(sql).get(...args)||null},async all(){return {results:raw.prepare(sql).all(...args)}},_run(){return raw.prepare(sql).run(...args)},async run(){return {meta:this._run()}}}},async batch(statements){raw.exec('BEGIN');try{const r=statements.map(s=>({meta:s._run()}));raw.exec('COMMIT');return r;}catch(e){raw.exec('ROLLBACK');throw e;}}};return db;}
 const config={enabled:false,apiKey:'',sender:'',secret:'',webhookSecret:''};
 const active={enabled:true,apiKey:'test-only',sender:'test@example.test',secret:'test-only-not-production',webhookSecret:'test-only-webhook'};
 const acceptance={...active,enabled:false,domainVerified:true,testRecipient:'acceptance@example.test'};
@@ -258,6 +267,26 @@ test('explicit acceptance restart sends nothing, preserves history and invalidat
     assert.deepEqual((await db.prepare('SELECT * FROM deliveries WHERE subscriber_id=? ORDER BY id').bind(production.subscriberId).all()).results,productionBefore);
   },index=>Response.json({messageId:`fixture-restarted-${index}`}));
 });
+test('the D1 LIKE limit is enforced and an 80-character acceptance run uses literal SQL prefixes',async(t)=>{
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-10-12T01:00:00.000Z')});
+  const db=database();await seedDatabase(db);
+  await assert.rejects(()=>db.prepare("SELECT 'fixture' LIKE ? AS matched").bind('x'.repeat(51)).first(),/pattern too complex/);
+  assert.equal((await db.prepare('SELECT ? LIKE ? AS matched').bind('x'.repeat(51),'x'.repeat(49)+'%').first()).matched,1);
+  const s=await retiredAcceptanceFixture(db),runId='r'.repeat(80),prepare=db.prepare;
+  db.prepare=sql=>{assert.doesNotMatch(sql,/\b(?:LIKE|GLOB)\b/i);return prepare(sql);};
+  await mockedMail(async sent=>{
+    assert.equal((await mailTest(db,{action:'status'},acceptance)).subscriberStatus,'unsubscribed');
+    assert.equal((await mailTest(db,{action:'restart',runId},acceptance)).status,'restarted');assert.equal(sent.length,0);
+    assert.equal((await mailTest(db,{action:'status'},acceptance)).activeTestRunId,runId);
+    assert.equal((await mailTest(db,{action:'restart',runId},acceptance)).status,'restart-already-recorded');
+    await mailTest(db,{action:'confirmation',runId},acceptance);
+    const confirmed=await confirmFromMail(db,sent[0]);assert.equal(confirmed.status,'confirmed');
+    await mailTest(db,{action:'weekly',runId},acceptance);assert.equal(sent.length,2);
+    assert.equal((await mailTest(db,{action:'weekly',runId:'prior-acceptance'},acceptance)).status,'stale-test-run');
+    await manageSubscription(db,{id:s.id,token:confirmed.token,action:'unsubscribe'},acceptance);
+    assert.equal((await mailTest(db,{action:'restart',runId:'prior-acceptance'},acceptance)).status,'test-run-already-used');
+  });
+});
 test('same and competing restart IDs serialize one state-only acceptance generation',async(t)=>{
   t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-10-12T01:00:00.000Z')});
   for(const runIds of [['concurrent-restart','concurrent-restart'],['concurrent-restart-a','concurrent-restart-b']]) {
@@ -305,7 +334,7 @@ test('a delayed competing restart cannot reopen a completed later generation fro
     assert.deepEqual(await db.prepare('SELECT * FROM subscribers WHERE id=?').bind(s.id).first(),completed);
     const current=await mailTest(db,{action:'status'},acceptance);
     assert.equal(current.subscriberStatus,'unsubscribed');assert.equal(current.activeTestRunId,activeRun);
-    assert.equal((await db.prepare('SELECT count(*) AS n FROM editions WHERE id LIKE ?').bind(`test-restart:${s.id}:%`).first()).n,1);
+    assert.equal((await db.prepare('SELECT count(*) AS n FROM editions WHERE substr(id,1,length(?))=?').bind(`test-restart:${s.id}:`,`test-restart:${s.id}:`).first()).n,1);
     assert.equal(sent.length,1);
   });
 });

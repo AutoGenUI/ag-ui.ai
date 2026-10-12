@@ -33,7 +33,7 @@ type Subscriber = {
 };
 // Two runId bindings: the first preserves legacy runs with no restart marker;
 // the second must match the latest recorded generation when one exists.
-const activeTestRunSql = "COALESCE((SELECT e.id FROM editions e WHERE e.is_test=1 AND e.id LIKE ('test-restart:'||s.id||':%') ORDER BY e.created_at DESC,e.id DESC LIMIT 1),'test-restart:'||s.id||':'||?)=('test-restart:'||s.id||':'||?)";
+const activeTestRunSql = "COALESCE((SELECT e.id FROM editions e WHERE e.is_test=1 AND substr(e.id,1,length('test-restart:'||s.id||':'))=('test-restart:'||s.id||':') ORDER BY e.created_at DESC,e.id DESC LIMIT 1),'test-restart:'||s.id||':'||?)=('test-restart:'||s.id||':'||?)";
 export function mailReady(c: MailConfig) {
   return (
     c.enabled && !!c.apiKey && !!c.sender && !!c.secret && !!c.webhookSecret
@@ -227,8 +227,8 @@ export async function mailTest(
     .bind(recipient).first<Subscriber>();
   type Restart = { id: string; payload: string; created_at: string };
   const readRestart = async () => s?.is_test === 1 ? db.prepare(
-    "SELECT id,payload,created_at FROM editions WHERE is_test=1 AND id LIKE ? ORDER BY created_at DESC,id DESC LIMIT 1",
-  ).bind(`test-restart:${s.id}:%`).first<Restart>() : null;
+    "SELECT id,payload,created_at FROM editions WHERE is_test=1 AND substr(id,1,length(?))=? ORDER BY created_at DESC,id DESC LIMIT 1",
+  ).bind(`test-restart:${s.id}:`, `test-restart:${s.id}:`).first<Restart>() : null;
   let restart = await readRestart();
   const restartData = () => restart ? JSON.parse(restart.payload) as {
     runId: string; previousTokenExpires: string | null;
@@ -258,9 +258,9 @@ export async function mailTest(
     if (existingMarker) return { status: "restart-already-recorded", ...(await status()) };
     if (s.status !== "unsubscribed")
       return { status: "test-recipient-not-unsubscribed", ...(await status()) };
-    const runPrefix = `test:${a.runId}:${s.id}:%`, editionId = `test:${a.runId}:${s.id}`;
-    const oldRun = await db.prepare("SELECT id FROM deliveries WHERE subscriber_id=? AND is_test=1 AND id LIKE ? UNION ALL SELECT id FROM editions WHERE id=? AND is_test=1 LIMIT 1")
-      .bind(s.id, runPrefix, editionId).first();
+    const runPrefix = `test:${a.runId}:${s.id}:`, editionId = `test:${a.runId}:${s.id}`;
+    const oldRun = await db.prepare("SELECT id FROM deliveries WHERE subscriber_id=? AND is_test=1 AND substr(id,1,length(?))=? UNION ALL SELECT id FROM editions WHERE id=? AND is_test=1 LIMIT 1")
+      .bind(s.id, runPrefix, runPrefix, editionId).first();
     if (oldRun) return { status: "test-run-already-used", ...(await status()) };
     const unresolved = await db.prepare("SELECT id FROM deliveries WHERE subscriber_id=? AND is_test=1 AND status IN ('sending','uncertain') LIMIT 1")
       .bind(s.id).first();
@@ -274,8 +274,8 @@ export async function mailTest(
     await db.batch([
       // A test-only edition marker records consent to a new acceptance run;
       // it is never a queued delivery and cannot cause mail to be sent.
-      db.prepare("INSERT OR IGNORE INTO editions(id,payload,created_at,is_test) SELECT ?,?,?,1 FROM subscribers s WHERE s.id=? AND lower(s.email)=? AND s.created_at=? AND s.is_test=1 AND s.status='unsubscribed' AND NOT EXISTS (SELECT 1 FROM deliveries d WHERE d.subscriber_id=s.id AND d.is_test=1 AND d.status IN ('sending','uncertain')) AND NOT EXISTS (SELECT 1 FROM deliveries d WHERE d.subscriber_id=s.id AND d.is_test=1 AND d.id LIKE ?) AND NOT EXISTS (SELECT 1 FROM editions e WHERE e.id=? AND e.is_test=1)")
-        .bind(markerId, payload, epoch, s.id, recipient, s.created_at, runPrefix, editionId),
+      db.prepare("INSERT OR IGNORE INTO editions(id,payload,created_at,is_test) SELECT ?,?,?,1 FROM subscribers s WHERE s.id=? AND lower(s.email)=? AND s.created_at=? AND s.is_test=1 AND s.status='unsubscribed' AND NOT EXISTS (SELECT 1 FROM deliveries d WHERE d.subscriber_id=s.id AND d.is_test=1 AND d.status IN ('sending','uncertain')) AND NOT EXISTS (SELECT 1 FROM deliveries d WHERE d.subscriber_id=s.id AND d.is_test=1 AND substr(d.id,1,length(?))=?) AND NOT EXISTS (SELECT 1 FROM editions e WHERE e.id=? AND e.is_test=1)")
+        .bind(markerId, payload, epoch, s.id, recipient, s.created_at, runPrefix, runPrefix, editionId),
       // The random marker payload binds changes to this transaction's winner,
       // so replaying a recorded run can never reopen it after another opt-out.
       db.prepare("UPDATE subscribers SET status='pending',created_at=?,confirmed_at=NULL,token_expires=NULL,locale=?,topics=? WHERE id=? AND lower(email)=? AND created_at=? AND is_test=1 AND status='unsubscribed' AND EXISTS (SELECT 1 FROM editions e WHERE e.id=? AND e.is_test=1 AND e.payload=?)")
