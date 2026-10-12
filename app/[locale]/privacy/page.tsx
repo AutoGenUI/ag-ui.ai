@@ -40,8 +40,8 @@ export default async function Privacy({
         <h2>{zh ? "邮件订阅" : "Email subscriptions"}</h2>
         <p>
           {zh
-            ? "公众邮件订阅目前待启用，不收集公众邮箱。启用后，邮箱用于确认订阅、精选周报和订阅偏好。邮件由 Brevo 投递，Brevo 可能记录邮件打开与链接点击。本站不依据这些记录决定发信，也不将其作为已读证明。每封邮件提供退订与偏好链接；退订、投诉和硬退信将停止后续投递。"
-            : "Public email subscriptions are awaiting activation; we are not collecting public subscribers’ addresses. Once enabled, addresses are used for confirmation, the weekly digest and preferences. Brevo delivers email and may record email opens and link clicks. This site does not use these records to decide whether to send email or as proof that an email was read. Every email includes unsubscribe and preference links. Unsubscribes, complaints and hard bounces stop future delivery."}
+            ? "邮箱用于确认订阅、精选周报和订阅偏好；订阅须完成邮件确认后才生效，可选择语言与主题。邮件由 Brevo 投递，当前匿名打开与点击统计不关联具体联系人，但邮件仍可能包含打开像素与链接跟踪。本站不依据这些统计决定发信，也不将其作为已读证明。每封邮件提供退订与偏好链接；退订、投诉和硬退信将停止后续投递。"
+            : "Email addresses are used for confirmation, the weekly digest and subscription preferences. A subscription takes effect only after email confirmation, and subscribers can choose their language and topics. Brevo delivers email; its current anonymous open and click statistics are not associated with individual contacts, but emails may still contain tracking pixels and tracked links. This site does not use these statistics to decide whether to send email or as proof that an email was read. Every email includes unsubscribe and preference links. Unsubscribes, complaints and hard bounces stop future delivery."}
         </p>
         <p>
           {zh
