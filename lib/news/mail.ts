@@ -63,49 +63,31 @@ export async function subscribe(
     !(await rateLimit(db, `email:${await hmac(email, c.secret)}`, 2, 86400000))
   )
     return { status: "check-inbox" };
-  let s = await db
-    .prepare("SELECT * FROM subscribers WHERE email=?")
-    .bind(email)
-    .first<Subscriber>();
-  if (s && (s.is_test || s.status !== "pending")) return { status: "check-inbox" };
   const now = new Date().toISOString(),
-    expires = new Date(Date.now() + 86400000).toISOString();
-  if (!s) {
-    s = {
-      id: crypto.randomUUID(),
-      email,
-      locale: input.locale,
-      topics: JSON.stringify(input.topics),
-      status: "pending",
-      created_at: now,
-      token_expires: expires,
-    };
-    await db
-      .prepare(
-        "INSERT INTO subscribers(id,email,locale,topics,status,created_at,token_expires) VALUES(?,?,?,?,?,?,?)",
-      )
-      .bind(s.id, email, s.locale, s.topics, s.status, now, expires)
-      .run();
-  } else {
-    await db
-      .prepare(
-        "UPDATE subscribers SET locale=?,topics=?,token_expires=? WHERE id=?",
-      )
-      .bind(input.locale, JSON.stringify(input.topics), expires, s.id)
-      .run();
-    s = {
-      ...s,
-      locale: input.locale,
-      topics: JSON.stringify(input.topics),
-      token_expires: expires,
-    };
-  }
-  await db
-    .prepare(
-      "INSERT OR IGNORE INTO deliveries(id,subscriber_id,kind,status,created_at,updated_at) VALUES(?,?,'confirmation','queued',?,?)",
-    )
-    .bind(`confirm:${s.id}:${singaporeDay()}`, s.id, now, now)
-    .run();
+    expires = new Date(Date.parse(now) + 86400000).toISOString(),
+    candidate = `confirm:${crypto.randomUUID()}`;
+  await db.batch([
+    // D1 serializes this batch. Concurrent callers use the actual email winner,
+    // never a losing request's subscriber ID or confirmation expiry.
+    db.prepare("INSERT OR IGNORE INTO subscribers(id,email,locale,topics,status,created_at,token_expires) VALUES(?,?,?,?,'pending',?,?)")
+      .bind(crypto.randomUUID(), email, input.locale, JSON.stringify(input.topics), now, expires),
+    // Any confirmation history protects a live token. An expired, known
+    // generation can be replaced; sending/uncertain always requires review.
+    db.prepare("INSERT OR IGNORE INTO deliveries(id,subscriber_id,kind,status,created_at,updated_at) SELECT ?,s.id,'confirmation','queued',?,? FROM subscribers s WHERE s.email=? AND s.is_test=0 AND s.status='pending' AND NOT EXISTS (SELECT 1 FROM deliveries d WHERE d.subscriber_id=s.id AND d.is_test=0 AND d.kind='confirmation' AND (d.status IN ('sending','uncertain') OR s.token_expires>?))")
+      .bind(candidate, now, now, email, now),
+    // Only the request that inserted a confirmation may change preferences or
+    // start a new expiry; a valid expiry (and its HMAC) stays unchanged.
+    db.prepare("UPDATE subscribers SET locale=?,topics=?,token_expires=CASE WHEN token_expires>? THEN token_expires ELSE ? END WHERE email=? AND is_test=0 AND status='pending' AND EXISTS (SELECT 1 FROM deliveries d WHERE d.id=? AND d.subscriber_id=subscribers.id AND d.is_test=0 AND d.status='queued')")
+      .bind(input.locale, JSON.stringify(input.topics), now, expires, email, candidate),
+    // Cancel old queued generations before another worker can claim a stale
+    // expiry snapshot. A worker that already claimed sending blocks rotation.
+    db.prepare("UPDATE deliveries SET status='cancelled',updated_at=? WHERE is_test=0 AND kind='confirmation' AND status='queued' AND id<>? AND subscriber_id IN (SELECT s.id FROM subscribers s WHERE s.email=? AND s.is_test=0 AND s.status='pending' AND EXISTS (SELECT 1 FROM deliveries winner WHERE winner.id=? AND winner.subscriber_id=s.id AND winner.is_test=0 AND winner.status='queued'))")
+      .bind(now, candidate, email, candidate),
+  ]);
+  const subscriber = await db.prepare("SELECT status,is_test FROM subscribers WHERE email=?")
+    .bind(email).first<{ status: string; is_test: number }>();
+  if (!subscriber || subscriber.is_test !== 0 || subscriber.status !== "pending")
+    return { status: "check-inbox" };
   await drainQueue(db, c, 5);
   return { status: "check-inbox" };
 }
@@ -133,7 +115,7 @@ export async function manageSubscription(
   )
     throw new Error("Invalid or expired link");
   if (action === "confirm") {
-    if (!s.token_expires || Date.parse(s.token_expires) < Date.now())
+    if (!s.token_expires || Date.parse(s.token_expires) <= Date.now())
       throw new Error("Confirmation link expired");
     await db
       .prepare(
@@ -385,14 +367,21 @@ async function deliverQueued(
       token_expires: d.token_expires,
     } as Subscriber;
     const manage = `https://ag-ui.ai/${d.locale}/subscribe?id=${s.id}&token=${await tokenFor(s, c.secret)}`;
-    let subject, html;
+    const copyInstruction = d.locale === "zh"
+      ? "如果按钮打不开，请复制下面的网址文字并粘贴到浏览器地址栏。直接点击或邮箱自动识别的链接仍可能经过 Brevo 跟踪。"
+      : "If a button will not open, copy the URL text below and paste it into your browser's address bar. Clicked or automatically detected email links may still pass through Brevo tracking.";
+    const copyableUrl = (url: string) => `<p>${escapeHtml(copyInstruction)}</p><p><span style="overflow-wrap:anywhere;word-break:break-all">${escapeHtml(url)}</span></p>`;
+    const manageLabel = d.locale === "zh" ? "退订 / 修改偏好" : "Unsubscribe / preferences";
+    let subject, html, text;
     if (d.kind === "confirmation") {
       subject =
         d.locale === "zh"
           ? "确认订阅 AG-UI.AI"
           : "Confirm your AG-UI.AI subscription";
       const link = `https://ag-ui.ai/${d.locale}/subscribe?action=confirm&id=${s.id}&token=${await tokenFor(s, c.secret, "confirm")}`;
-      html = `<p>${subject}</p><p><a href="${escapeHtml(link)}">${d.locale === "zh" ? "确认邮箱（24 小时内有效）" : "Confirm email (valid for 24 hours)"}</a></p>`;
+      const confirmLabel = d.locale === "zh" ? "确认邮箱（24 小时内有效）" : "Confirm email (valid for 24 hours)";
+      html = `<p>${subject}</p><p><a href="${escapeHtml(link)}">${confirmLabel}</a></p>${copyableUrl(link)}`;
+      text = `${subject}\n\n${confirmLabel}\n${copyInstruction}\n${link}`;
     } else {
       const ed = await db
         .prepare("SELECT payload FROM editions WHERE id=?")
@@ -401,18 +390,22 @@ async function deliverQueued(
       const topics: string[] = JSON.parse(d.topics);
       const items: NewsItem[] = ed ? JSON.parse(ed.payload).items : [];
       subject = `AG-UI.AI · ${d.locale === "zh" ? "生成式 UI 周报" : "Generative UI weekly"} · ${d.edition_id}`;
-      html = items
-        .filter((x) => topics.includes(x.category))
+      const selected = items.filter((x) => topics.includes(x.category));
+      html = selected
         .map(
           (x) =>
             `<h2><a href="https://ag-ui.ai/${d.locale}/news/${x.slug}">${escapeHtml(x[d.locale as "en" | "zh"].title)}</a></h2><p>${escapeHtml(x[d.locale as "en" | "zh"].summary)}</p>`,
         )
         .join("");
+      text = `${subject}\n\n${selected.map((x) => `${x[d.locale as "en" | "zh"].title}\n${x[d.locale as "en" | "zh"].summary}\nhttps://ag-ui.ai/${d.locale}/news/${x.slug}`).join("\n\n")}`;
     }
-    html += `<p><a href="${escapeHtml(manage)}">${d.locale === "zh" ? "退订 / 修改偏好" : "Unsubscribe / preferences"}</a></p><p>AG-UI.AI · Independent Generative UI intelligence · Sent with Brevo</p>`;
+    html += `<p><a href="${escapeHtml(manage)}">${manageLabel}</a></p>${copyableUrl(manage)}<p>AG-UI.AI · Independent Generative UI intelligence · Sent with Brevo</p>`;
+    text += `\n\n${manageLabel}\n${copyInstruction}\n${manage}\n\nAG-UI.AI · Independent Generative UI intelligence · Sent with Brevo`;
     if (test) {
       subject = `[${d.locale === "zh" ? "验收测试" : "Acceptance test"}] ${subject}`;
-      html += `<p>${d.locale === "zh" ? "这是所有者授权的邮件验收测试，不会将此邮箱加入正式周报名单。" : "This owner-authorized acceptance test does not add this mailbox to the production newsletter."}</p>`;
+      const testNotice = d.locale === "zh" ? "这是所有者授权的邮件验收测试，不会将此邮箱加入正式周报名单。" : "This owner-authorized acceptance test does not add this mailbox to the production newsletter.";
+      html += `<p>${testNotice}</p>`;
+      text += `\n\n${testNotice}`;
     }
     try {
       const response = await fetch("https://api.brevo.com/v3/smtp/email", {
@@ -423,6 +416,7 @@ async function deliverQueued(
           to: [{ email: d.email }],
           subject,
           htmlContent: html,
+          textContent: text,
           headers: { "X-Mailin-custom": `delivery:${d.id}` },
           tags: ["ag-ui-weekly"],
         }),
