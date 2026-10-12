@@ -47,7 +47,7 @@ const toolList = [
   {
     name: "newsroom_write",
     description:
-      "Owner: maintain verified bilingual news and trends, source discovery/check status, run checkpoints and weekly delivery queue. Read https://ag-ui.ai/automation.md for the operation contract. Publish requires article, reason and verification {sourceRead,dateConfirmed,conflicts}; mergeInto folds multiple sources into one event. mail-test is only for explicitly authorized owner acceptance: {action:status|confirmation|weekly,runId?:stable-id,locale?:zh|en,topics?:categories}; recipient is server-configured and cannot be supplied here. Never use mail-test in scheduled editorial tasks.",
+      "Owner: maintain verified bilingual news and trends, source discovery/check status, run checkpoints and weekly delivery queue. Read https://ag-ui.ai/automation.md for the operation contract. Publish requires article, reason and verification {sourceRead,dateConfirmed,conflicts}; mergeInto folds multiple sources into one event. mail-test is only for explicitly authorized owner acceptance: {action:status|restart|confirmation|weekly,runId?:stable-id,locale?:zh|en,topics?:categories}; recipient is server-configured and cannot be supplied here. restart sends no mail and requires public email disabled, an unsubscribed test recipient, no uncertain submission, and a new runId. Never use mail-test in scheduled editorial tasks.",
     inputSchema: {
       type: "object",
       properties: {

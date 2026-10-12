@@ -202,6 +202,224 @@ test('confirmation and weekly emails offer matching escaped HTML and plain-text 
     });
   }
 });
+async function retiredAcceptanceFixture(db,patch={}) {
+  const now=new Date().toISOString(),expires=new Date(Date.now()+86400000).toISOString();
+  const s=await pendingPublicFixture(db,'retired-acceptance',expires,null,{email:acceptance.testRecipient,is_test:1,status:'unsubscribed',created_at:now,...patch});
+  for(const kind of ['confirmation','weekly']) await db.prepare('INSERT INTO deliveries(id,subscriber_id,kind,status,provider_id,created_at,updated_at,is_test) VALUES(?,?,?,\'delivered\',?,?,?,?)')
+    .bind(`test:prior-acceptance:${s.id}:${kind}`,s.id,kind,`fixture-old-${kind}`,now,now,s.is_test).run();
+  return s;
+}
+test('explicit acceptance restart sends nothing, preserves history and invalidates old links and run IDs',async(t)=>{
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-10-12T01:00:00.000Z')});
+  const db=database();await seedDatabase(db);
+  const s=await retiredAcceptanceFixture(db),oldConfirm=await tokenFor(s,active.secret,'confirm'),oldManage=await tokenFor(s,active.secret);
+  await db.prepare("INSERT INTO deliveries(id,subscriber_id,kind,status,created_at,updated_at,is_test) VALUES(?,?,'confirmation','delivered',?,?,1)")
+    .bind(`test:prior-confirmation-only:${s.id}:confirmation`,s.id,s.created_at,s.created_at).run();
+  const production=await webhookFixture(db,'restart-production',0);
+  const oldHistory=(await db.prepare('SELECT * FROM deliveries WHERE subscriber_id=? ORDER BY id').bind(s.id).all()).results;
+  const productionBefore=(await db.prepare('SELECT * FROM deliveries WHERE subscriber_id=? ORDER BY id').bind(production.subscriberId).all()).results;
+  await db.prepare('INSERT INTO mail_quota(day,count) VALUES(?,3)').bind(singaporeDay()).run();
+  await mockedMail(async sent=>{
+    const args={action:'restart',runId:'new-acceptance-run',locale:'en',topics:['model']};
+    const restarted=await operate(db,'mail-test',args,acceptance);
+    assert.equal(restarted.status,'restarted');assert.equal(restarted.subscriberStatus,'pending');assert.equal(restarted.publicEnabled,false);
+    assert.equal(restarted.activeTestRunId,args.runId);assert.equal(sent.length,0);
+    assert.deepEqual((await mailTest(db,{action:'status'},acceptance)).preferences,{locale:'en',topics:['model']});
+    assert.doesNotMatch(JSON.stringify(restarted),/acceptance@example|token=|test-only/);
+    const pending=await db.prepare('SELECT * FROM subscribers WHERE id=?').bind(s.id).first();
+    assert.notEqual(pending.created_at,s.created_at);assert.equal(pending.token_expires,null);
+    assert.equal((await db.prepare('SELECT count FROM mail_quota').first()).count,3);
+    const marker=await db.prepare('SELECT payload FROM editions WHERE id=?').bind(`test-restart:${s.id}:${args.runId}`).first();
+    const metadata=JSON.parse(marker.payload);assert.equal(metadata.previousCreatedAt,s.created_at);assert.equal(metadata.previousTokenExpires,s.token_expires);
+    assert.doesNotMatch(marker.payload,/acceptance@example|token=|test-only/);
+    assert.deepEqual((await db.prepare('SELECT * FROM deliveries WHERE subscriber_id=? ORDER BY id').bind(s.id).all()).results,oldHistory);
+    assert.equal((await mailTest(db,args,acceptance)).status,'restart-already-recorded');
+    assert.deepEqual(await db.prepare('SELECT * FROM subscribers WHERE id=?').bind(s.id).first(),pending);
+    await assert.rejects(()=>manageSubscription(db,{id:s.id,token:oldManage,action:'read'},acceptance),/Invalid/);
+    assert.equal((await mailTest(db,{action:'confirmation',runId:'prior-acceptance'},acceptance)).status,'stale-test-run');
+    await mailTest(db,{action:'confirmation',runId:args.runId},acceptance);assert.equal(sent.length,1);
+    await assert.rejects(()=>manageSubscription(db,{id:s.id,token:oldConfirm,action:'confirm'},acceptance),/Invalid/);
+    const confirmed=await confirmFromMail(db,sent[0]);assert.equal(confirmed.status,'confirmed');
+    const deliveryCount=(await db.prepare('SELECT count(*) AS n FROM deliveries').first()).n;
+    for(const runId of ['prior-confirmation-only','prior-acceptance','unrecorded-new-run']) assert.equal((await mailTest(db,{action:'weekly',runId},acceptance)).status,'stale-test-run');
+    assert.equal((await db.prepare('SELECT count(*) AS n FROM deliveries').first()).n,deliveryCount);assert.equal(sent.length,1);
+    await mailTest(db,{action:'weekly',runId:args.runId},acceptance);assert.equal(sent.length,2);
+    await manageSubscription(db,{id:s.id,token:confirmed.token,action:'unsubscribe'},acceptance);
+    const completed=await db.prepare('SELECT * FROM subscribers WHERE id=?').bind(s.id).first();
+    assert.equal((await mailTest(db,args,acceptance)).status,'restart-already-recorded');
+    assert.deepEqual(await db.prepare('SELECT * FROM subscribers WHERE id=?').bind(s.id).first(),completed);assert.equal(sent.length,2);
+    assert.equal((await mailTest(db,{action:'weekly',runId:args.runId},acceptance)).status,'recipient-suppressed');
+    const next={action:'restart',runId:'next-acceptance-run'};
+    assert.equal((await mailTest(db,next,acceptance)).status,'restarted');
+    const nextSubscriber=await db.prepare('SELECT * FROM subscribers WHERE id=?').bind(s.id).first();
+    assert.equal((await mailTest(db,args,acceptance)).status,'restart-already-recorded');
+    assert.deepEqual(await db.prepare('SELECT * FROM subscribers WHERE id=?').bind(s.id).first(),nextSubscriber);
+    assert.equal((await mailTest(db,{action:'weekly',runId:args.runId},acceptance)).status,'stale-test-run');assert.equal(sent.length,2);
+    assert.deepEqual((await db.prepare('SELECT * FROM deliveries WHERE subscriber_id=? ORDER BY id').bind(production.subscriberId).all()).results,productionBefore);
+  },index=>Response.json({messageId:`fixture-restarted-${index}`}));
+});
+test('same and competing restart IDs serialize one state-only acceptance generation',async(t)=>{
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-10-12T01:00:00.000Z')});
+  for(const runIds of [['concurrent-restart','concurrent-restart'],['concurrent-restart-a','concurrent-restart-b']]) {
+    const db=database(),s=await retiredAcceptanceFixture(db);
+    await mockedMail(async sent=>{
+      const results=await Promise.all(runIds.map(runId=>mailTest(db,{action:'restart',runId},acceptance)));
+      assert.equal(results.filter(result=>result.status==='restarted').length,1);
+      assert.equal((await db.prepare('SELECT count(*) AS n FROM editions WHERE is_test=1').first()).n,1);
+      assert.equal((await db.prepare('SELECT count(*) AS n FROM deliveries').first()).n,2);
+      assert.equal((await db.prepare('SELECT status FROM subscribers WHERE id=?').bind(s.id).first()).status,'pending');
+      assert.equal((await db.prepare('SELECT count(*) AS n FROM mail_quota').first()).n,0);assert.equal(sent.length,0);
+    });
+  }
+});
+test('a concurrent replay cannot reopen a later opt-out of the same recorded restart',async(t)=>{
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-10-12T01:00:00.000Z')});
+  const db=database(),s=await retiredAcceptanceFixture(db),batch=db.batch;let calls=0;
+  db.batch=async statements=>{if(++calls===2) await db.prepare("UPDATE subscribers SET status='unsubscribed' WHERE id=?").bind(s.id).run();return batch(statements);};
+  await mockedMail(async sent=>{
+    const args={action:'restart',runId:'restart-optout-race'};
+    const results=await Promise.all([mailTest(db,args,acceptance),mailTest(db,args,acceptance)]);
+    assert.equal(results.filter(result=>result.status==='restarted').length,1);
+    assert.equal((await db.prepare('SELECT status FROM subscribers WHERE id=?').bind(s.id).first()).status,'unsubscribed');
+    assert.equal((await db.prepare('SELECT count(*) AS n FROM editions').first()).n,1);assert.equal(sent.length,0);
+  });
+});
+test('a delayed competing restart cannot reopen a completed later generation from an old snapshot',async(t)=>{
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-10-12T01:00:00.000Z')});
+  const db=database(),s=await retiredAcceptanceFixture(db),prepare=db.prepare,batch=db.batch;
+  const delayedRun='delayed-restart-b',activeRun='completed-restart-a';
+  let enter,release,paused=false;
+  const entered=new Promise(resolve=>{enter=resolve;}),released=new Promise(resolve=>{release=resolve;});
+  db.prepare=sql=>{const statement=prepare(sql),bind=statement.bind;
+    statement.bind=(...args)=>{statement.fixtureArgs=args;return bind.apply(statement,args);};return statement;};
+  db.batch=async statements=>{if(!paused&&statements.some(statement=>statement.fixtureArgs?.[0]===`test-restart:${s.id}:${delayedRun}`)){paused=true;enter();await released;}return batch(statements);};
+  await mockedMail(async sent=>{
+    const delayed=mailTest(db,{action:'restart',runId:delayedRun},acceptance);
+    await entered;
+    assert.equal((await mailTest(db,{action:'restart',runId:activeRun},acceptance)).status,'restarted');
+    await mailTest(db,{action:'confirmation',runId:activeRun},acceptance);
+    const confirmed=await confirmFromMail(db,sent[0]);
+    await manageSubscription(db,{id:s.id,token:confirmed.token,action:'unsubscribe'},acceptance);
+    const completed=await db.prepare('SELECT * FROM subscribers WHERE id=?').bind(s.id).first();
+    release();assert.equal((await delayed).status,'test-restart-unavailable');
+    assert.deepEqual(await db.prepare('SELECT * FROM subscribers WHERE id=?').bind(s.id).first(),completed);
+    const current=await mailTest(db,{action:'status'},acceptance);
+    assert.equal(current.subscriberStatus,'unsubscribed');assert.equal(current.activeTestRunId,activeRun);
+    assert.equal((await db.prepare('SELECT count(*) AS n FROM editions WHERE id LIKE ?').bind(`test-restart:${s.id}:%`).first()).n,1);
+    assert.equal(sent.length,1);
+  });
+});
+test('restart cancels only old queued test mail and refuses production, suppression, reused or unresolved runs',async(t)=>{
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-10-12T01:00:00.000Z')});
+  const db=database(),s=await retiredAcceptanceFixture(db);
+  await db.prepare("INSERT INTO deliveries(id,subscriber_id,kind,status,created_at,updated_at,is_test) VALUES('fixture-old-test-queue',?,'weekly','queued',?,?,1)").bind(s.id,s.created_at,s.created_at).run();
+  await mockedMail(async sent=>{
+    assert.equal((await mailTest(db,{action:'restart',runId:'cancel-old-test-queue'},acceptance)).status,'restarted');
+    assert.equal((await db.prepare("SELECT status FROM deliveries WHERE id='fixture-old-test-queue'").first()).status,'cancelled');assert.equal(sent.length,0);
+  });
+  for(const variant of ['production','suppressed','confirmed','pending','sending','uncertain','used-run','public-enabled','missing']) {
+    const denied=database();
+    let row;
+    if(variant!=='missing') row=await retiredAcceptanceFixture(denied,variant==='production'?{is_test:0}:['suppressed','confirmed','pending'].includes(variant)?{status:variant}:{});
+    if(['sending','uncertain'].includes(variant)) await denied.prepare("UPDATE deliveries SET status=? WHERE kind='weekly'").bind(variant).run();
+    const snapshot=async()=>({subscribers:(await denied.prepare('SELECT * FROM subscribers ORDER BY id').all()).results,deliveries:(await denied.prepare('SELECT * FROM deliveries ORDER BY id').all()).results,editions:(await denied.prepare('SELECT * FROM editions ORDER BY id').all()).results});
+    const before=await snapshot();
+    await mockedMail(async sent=>{
+      const args={action:'restart',runId:variant==='used-run'?'prior-acceptance':'refused-restart-run'};
+      if(variant==='production') await assert.rejects(()=>mailTest(denied,args,acceptance),/production/);
+      else assert.notEqual((await mailTest(denied,args,variant==='public-enabled'?{...acceptance,enabled:true}:acceptance)).status,'restarted');
+      assert.deepEqual(await snapshot(),before);assert.equal(sent.length,0);
+      await assert.rejects(()=>mailTest(denied,{...args,email:'outsider@example.test'},acceptance));
+      assert.deepEqual(await snapshot(),before);
+    });
+  }
+});
+test('a paused legacy weekly call cannot insert or claim mail after an acceptance restart',async(t)=>{
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-10-12T01:00:00.000Z')});
+  for(const stage of ['insert','claim']) {
+    const db=database();await seedDatabase(db);
+    const s=await retiredAcceptanceFixture(db,{status:'confirmed'}),oldToken=await tokenFor(s,active.secret);
+    const oldRun='legacy-racing-weekly',oldDelivery=`test:${oldRun}:${s.id}:weekly`;
+    let enter,release,paused=false;
+    const entered=new Promise(resolve=>{enter=resolve;}),released=new Promise(resolve=>{release=resolve;});
+    if(stage==='insert') {
+      const batch=db.batch;
+      db.batch=async statements=>{if(!paused){paused=true;enter();await released;}return batch(statements);};
+    } else {
+      const prepare=db.prepare;
+      db.prepare=sql=>{const statement=prepare(sql),first=statement.first;
+        statement.first=async()=>{if(!paused&&sql.startsWith("UPDATE deliveries SET status='sending'")){paused=true;enter();await released;}return first.call(statement);};return statement;};
+    }
+    await mockedMail(async sent=>{
+      const oldRequest=mailTest(db,{action:'weekly',runId:oldRun},acceptance);
+      await entered;
+      await manageSubscription(db,{id:s.id,token:oldToken,action:'unsubscribe'},acceptance);
+      const newRun='active-racing-restart';
+      assert.equal((await mailTest(db,{action:'restart',runId:newRun},acceptance)).status,'restarted');
+      await mailTest(db,{action:'confirmation',runId:newRun},acceptance);
+      const confirmed=await confirmFromMail(db,sent[0]);assert.equal(confirmed.status,'confirmed');
+      if(stage==='claim') {
+        // Model a legacy queued row arriving after cancellation. The atomic
+        // claim must quarantine it even though this recipient is confirmed.
+        await db.prepare("UPDATE deliveries SET status='queued' WHERE id=?").bind(oldDelivery).run();
+      }
+      release();
+      assert.equal((await oldRequest).submitted,0);assert.equal(sent.length,1);
+      const oldRow=await db.prepare('SELECT status,attempted_at FROM deliveries WHERE id=?').bind(oldDelivery).first();
+      if(stage==='insert') assert.equal(oldRow,null);
+      else {assert.equal(oldRow.status,'queued');assert.equal(oldRow.attempted_at,null);}
+      assert.equal((await mailTest(db,{action:'weekly',runId:oldRun},acceptance)).status,'stale-test-run');assert.equal(sent.length,1);
+      await manageSubscription(db,{id:s.id,token:confirmed.token,action:'unsubscribe'},acceptance);
+      if(oldRow) assert.equal((await db.prepare('SELECT status FROM deliveries WHERE id=?').bind(oldDelivery).first()).status,'cancelled');
+    });
+  }
+});
+test('a previously validated confirmation cannot confirm the restarted acceptance generation',async(t)=>{
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-10-12T01:00:00.000Z')});
+  const db=database(),s=await retiredAcceptanceFixture(db),oldToken=await tokenFor(s,active.secret,'confirm');
+  let enter,release,paused=false;
+  const entered=new Promise(resolve=>{enter=resolve;}),released=new Promise(resolve=>{release=resolve;});
+  const prepare=db.prepare;
+  db.prepare=sql=>{const statement=prepare(sql),run=statement.run;
+    statement.run=async()=>{if(!paused&&sql.startsWith("UPDATE subscribers SET status='confirmed'")){paused=true;enter();await released;}return run.call(statement);};return statement;};
+  await mockedMail(async sent=>{
+    const oldRequest=manageSubscription(db,{id:s.id,token:oldToken,action:'confirm'},acceptance),rejected=assert.rejects(oldRequest,/Invalid or expired link/);
+    await entered;
+    assert.equal((await mailTest(db,{action:'restart',runId:'confirm-generation-race'},acceptance)).status,'restarted');
+    release();await rejected;
+    assert.equal((await db.prepare('SELECT status FROM subscribers WHERE id=?').bind(s.id).first()).status,'pending');assert.equal(sent.length,0);
+  });
+});
+test('previously validated preference and unsubscribe calls cannot mutate a restarted generation',async(t)=>{
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-10-12T01:00:00.000Z')});
+  for(const action of ['preferences','unsubscribe']) {
+    const db=database(),s=await retiredAcceptanceFixture(db,{status:'confirmed'}),oldToken=await tokenFor(s,active.secret);
+    let enter,release,paused=false;
+    const entered=new Promise(resolve=>{enter=resolve;}),released=new Promise(resolve=>{release=resolve;});
+    const prepare=db.prepare;
+    db.prepare=sql=>{const statement=prepare(sql);statement.fixtureSql=sql;
+      if(action==='preferences') {const run=statement.run;statement.run=async()=>{if(!paused&&sql.startsWith("UPDATE subscribers SET locale=?,topics=? WHERE id=? AND status='confirmed'")){paused=true;enter();await released;}return run.call(statement);};}
+      return statement;};
+    if(action==='unsubscribe') {const batch=db.batch;db.batch=async statements=>{if(!paused&&statements.some(statement=>statement.fixtureSql.startsWith("UPDATE subscribers SET status='unsubscribed'"))){paused=true;enter();await released;}return batch(statements);};}
+    await mockedMail(async sent=>{
+      const oldRequest=manageSubscription(db,{id:s.id,token:oldToken,action,locale:'en',topics:['research']},acceptance),rejected=assert.rejects(oldRequest,/Invalid or expired link/);
+      await entered;
+      await manageSubscription(db,{id:s.id,token:oldToken,action:'unsubscribe'},acceptance);
+      const runId=`manage-generation-${action}`;
+      assert.equal((await mailTest(db,{action:'restart',runId,locale:'zh',topics:['model']},acceptance)).status,'restarted');
+      if(action==='unsubscribe') await db.prepare('INSERT INTO mail_quota(day,count) VALUES(?,300)').bind(singaporeDay()).run();
+      await mailTest(db,{action:'confirmation',runId},acceptance);
+      if(action==='preferences') await confirmFromMail(db,sent[0]);
+      const before=await db.prepare('SELECT * FROM subscribers WHERE id=?').bind(s.id).first();
+      const deliveries=(await db.prepare('SELECT * FROM deliveries WHERE subscriber_id=? ORDER BY id').bind(s.id).all()).results;
+      release();await rejected;
+      assert.deepEqual(await db.prepare('SELECT * FROM subscribers WHERE id=?').bind(s.id).first(),before);
+      assert.deepEqual((await db.prepare('SELECT * FROM deliveries WHERE subscriber_id=? ORDER BY id').bind(s.id).all()).results,deliveries);
+      assert.equal(sent.length,action==='preferences'?1:0);
+      if(action==='unsubscribe') assert.equal(deliveries.find(delivery=>delivery.id===`test:${runId}:${s.id}:confirmation`).status,'queued');
+    });
+  }
+});
 async function webhookFixture(db, label, isTest=0) {
   const email=`fixture-${label}@example.test`, subscriberId=`fixture-${label}`, now='2000-01-01T00:00:00.000Z';
   await db.prepare("INSERT INTO subscribers(id,email,locale,topics,status,created_at,confirmed_at,is_test) VALUES(?,?,'en','[\"product\"]','confirmed',?,?,?)")
@@ -282,6 +500,11 @@ test('webhook HTTP route accepts the configured Bearer and rejects other credent
     state.secret='';
     assert.equal((await newsApi(request('Bearer ',JSON.stringify(payload)))).status,401);
     assert.equal(state.reads,1);assert.equal(state.databaseCalls,1);
+    const restartBody=JSON.stringify({operation:'mail-test',arguments:{action:'restart',runId:'anonymous-restart'}});
+    const admin=await newsApi(new Request('https://fixture.example.test/api/admin',{method:'POST',headers:{origin:'https://fixture.example.test','content-type':'application/json'},body:restartBody}));
+    assert.equal(admin.status,403);assert.equal(state.databaseCalls,1);
+    const mcp=await newsApi(new Request('https://fixture.example.test/mcp',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/call',params:{name:'newsroom_write',arguments:JSON.parse(restartBody)}})}));
+    assert.equal(mcp.status,403);assert.equal(state.databaseCalls,1);
   } finally {hooks.deregister();delete globalThis.__agUiWebhookRuntimeFixture;}
 });
 test('concurrent acceptance run IDs claim one confirmation and preserve its signed link',async()=>{

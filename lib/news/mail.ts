@@ -31,6 +31,9 @@ type Subscriber = {
   token_expires: string | null;
   is_test?: number;
 };
+// Two runId bindings: the first preserves legacy runs with no restart marker;
+// the second must match the latest recorded generation when one exists.
+const activeTestRunSql = "COALESCE((SELECT e.id FROM editions e WHERE e.is_test=1 AND e.id LIKE ('test-restart:'||s.id||':%') ORDER BY e.created_at DESC,e.id DESC LIMIT 1),'test-restart:'||s.id||':'||?)=('test-restart:'||s.id||':'||?)";
 export function mailReady(c: MailConfig) {
   return (
     c.enabled && !!c.apiKey && !!c.sender && !!c.secret && !!c.webhookSecret
@@ -119,34 +122,35 @@ export async function manageSubscription(
       throw new Error("Confirmation link expired");
     await db
       .prepare(
-        "UPDATE subscribers SET status='confirmed',confirmed_at=COALESCE(confirmed_at,?) WHERE id=? AND status='pending'",
+        "UPDATE subscribers SET status='confirmed',confirmed_at=COALESCE(confirmed_at,?) WHERE id=? AND status='pending' AND created_at=? AND token_expires=?",
       )
-      .bind(new Date().toISOString(), id)
+      .bind(new Date().toISOString(), id, s.created_at, s.token_expires)
       .run();
   } else if (action === "unsubscribe") {
     await db.batch([
       db
-        .prepare("UPDATE subscribers SET status='unsubscribed' WHERE id=?")
-        .bind(id),
+        .prepare("UPDATE subscribers SET status='unsubscribed' WHERE id=? AND created_at=?")
+        .bind(id, s.created_at),
       db
         .prepare(
-          "UPDATE deliveries SET status='cancelled',updated_at=? WHERE subscriber_id=? AND status='queued'",
+          "UPDATE deliveries SET status='cancelled',updated_at=? WHERE subscriber_id=? AND status='queued' AND EXISTS (SELECT 1 FROM subscribers s WHERE s.id=? AND s.created_at=? AND s.status='unsubscribed')",
         )
-        .bind(new Date().toISOString(), id),
+        .bind(new Date().toISOString(), id, id, s.created_at),
     ]);
   } else if (action === "preferences") {
     const p = preferenceSchema.parse(input);
     await db
       .prepare(
-        "UPDATE subscribers SET locale=?,topics=? WHERE id=? AND status='confirmed'",
+        "UPDATE subscribers SET locale=?,topics=? WHERE id=? AND status='confirmed' AND created_at=?",
       )
-      .bind(p.locale, JSON.stringify(p.topics), id)
+      .bind(p.locale, JSON.stringify(p.topics), id, s.created_at)
       .run();
   }
   const current = await db
-    .prepare("SELECT locale,topics,status FROM subscribers WHERE id=?")
-    .bind(id)
+    .prepare(`SELECT locale,topics,status FROM subscribers WHERE id=? AND created_at=?${action === "confirm" ? " AND token_expires=?" : ""}`)
+    .bind(id, s.created_at, ...(action === "confirm" ? [s.token_expires] : []))
     .first();
+  if (!current) throw new Error("Invalid or expired link");
   return { ...current, token: await tokenFor(s, c.secret) };
 }
 export async function queueDigest(db: Database, week: string) {
@@ -212,7 +216,7 @@ export async function mailTest(
   c: MailConfig,
 ) {
   const a = z.object({
-    action: z.enum(["status", "confirmation", "weekly"]),
+    action: z.enum(["status", "restart", "confirmation", "weekly"]),
     runId: z.string().regex(/^[a-z0-9-]{8,80}$/).optional(),
     locale: z.enum(["en", "zh"]).default("zh"),
     topics: z.array(z.enum(categories)).min(1).max(6).default([...categories]),
@@ -221,10 +225,20 @@ export async function mailTest(
   const recipient = c.testRecipient?.trim().toLowerCase() || "";
   let s = await db.prepare("SELECT * FROM subscribers WHERE email=?")
     .bind(recipient).first<Subscriber>();
+  type Restart = { id: string; payload: string; created_at: string };
+  const readRestart = async () => s?.is_test === 1 ? db.prepare(
+    "SELECT id,payload,created_at FROM editions WHERE is_test=1 AND id LIKE ? ORDER BY created_at DESC,id DESC LIMIT 1",
+  ).bind(`test-restart:${s.id}:%`).first<Restart>() : null;
+  let restart = await readRestart();
+  const restartData = () => restart ? JSON.parse(restart.payload) as {
+    runId: string; previousTokenExpires: string | null;
+  } : null;
   const status = async () => ({
     ready,
     publicEnabled: mailReady(c),
     subscriberStatus: s?.is_test === 1 ? s.status : null,
+    activeTestRunId: restartData()?.runId || null,
+    preferences: s?.is_test === 1 ? { locale: s.locale, topics: JSON.parse(s.topics) } : null,
     deliveries: s?.is_test === 1 ? (await db.prepare(
       "SELECT kind,status,attempted_at,updated_at,error FROM deliveries WHERE subscriber_id=? AND is_test=1 ORDER BY created_at DESC LIMIT 20",
     ).bind(s.id).all()).results : [],
@@ -232,10 +246,53 @@ export async function mailTest(
   if (a.action === "status") return status();
   if (!ready) return { status: "test-not-configured", ...(await status()) };
   if (!a.runId) throw new Error("A stable test runId is required");
-  // Never repurpose a real subscriber, nor undo a test recipient's opt-out.
+  // Ordinary send calls never repurpose a real subscriber or undo an opt-out.
   if (s && s.is_test !== 1) throw new Error("Test recipient is already a production subscriber");
+  if (a.action === "restart") {
+    if (c.enabled) return { status: "public-email-enabled", ...(await status()) };
+    if (!s) return { status: "test-recipient-not-unsubscribed", ...(await status()) };
+    if (s.status === "suppressed") return { status: "recipient-suppressed", ...(await status()) };
+    const markerId = `test-restart:${s.id}:${a.runId}`;
+    const existingMarker = await db.prepare("SELECT id FROM editions WHERE id=? AND is_test=1")
+      .bind(markerId).first();
+    if (existingMarker) return { status: "restart-already-recorded", ...(await status()) };
+    if (s.status !== "unsubscribed")
+      return { status: "test-recipient-not-unsubscribed", ...(await status()) };
+    const runPrefix = `test:${a.runId}:${s.id}:%`, editionId = `test:${a.runId}:${s.id}`;
+    const oldRun = await db.prepare("SELECT id FROM deliveries WHERE subscriber_id=? AND is_test=1 AND id LIKE ? UNION ALL SELECT id FROM editions WHERE id=? AND is_test=1 LIMIT 1")
+      .bind(s.id, runPrefix, editionId).first();
+    if (oldRun) return { status: "test-run-already-used", ...(await status()) };
+    const unresolved = await db.prepare("SELECT id FROM deliveries WHERE subscriber_id=? AND is_test=1 AND status IN ('sending','uncertain') LIMIT 1")
+      .bind(s.id).first();
+    if (unresolved) return { status: "test-restart-requires-reconciliation", ...(await status()) };
+    const now = new Date().toISOString();
+    const epoch = new Date(Math.max(Date.parse(now), Date.parse(s.created_at) + 1,
+      restart ? Date.parse(restart.created_at) + 1 : 0)).toISOString();
+    const payload = JSON.stringify({ kind: "mail-test-restart", runId: a.runId,
+      requestId: crypto.randomUUID(), previousCreatedAt: s.created_at,
+      previousTokenExpires: s.token_expires });
+    await db.batch([
+      // A test-only edition marker records consent to a new acceptance run;
+      // it is never a queued delivery and cannot cause mail to be sent.
+      db.prepare("INSERT OR IGNORE INTO editions(id,payload,created_at,is_test) SELECT ?,?,?,1 FROM subscribers s WHERE s.id=? AND lower(s.email)=? AND s.created_at=? AND s.is_test=1 AND s.status='unsubscribed' AND NOT EXISTS (SELECT 1 FROM deliveries d WHERE d.subscriber_id=s.id AND d.is_test=1 AND d.status IN ('sending','uncertain')) AND NOT EXISTS (SELECT 1 FROM deliveries d WHERE d.subscriber_id=s.id AND d.is_test=1 AND d.id LIKE ?) AND NOT EXISTS (SELECT 1 FROM editions e WHERE e.id=? AND e.is_test=1)")
+        .bind(markerId, payload, epoch, s.id, recipient, s.created_at, runPrefix, editionId),
+      // The random marker payload binds changes to this transaction's winner,
+      // so replaying a recorded run can never reopen it after another opt-out.
+      db.prepare("UPDATE subscribers SET status='pending',created_at=?,confirmed_at=NULL,token_expires=NULL,locale=?,topics=? WHERE id=? AND lower(email)=? AND created_at=? AND is_test=1 AND status='unsubscribed' AND EXISTS (SELECT 1 FROM editions e WHERE e.id=? AND e.is_test=1 AND e.payload=?)")
+        .bind(epoch, a.locale, JSON.stringify(a.topics), s.id, recipient, s.created_at, markerId, payload),
+      db.prepare("UPDATE deliveries SET status='cancelled',updated_at=? WHERE subscriber_id=? AND is_test=1 AND status='queued' AND EXISTS (SELECT 1 FROM subscribers s WHERE s.id=? AND s.is_test=1 AND s.status='pending' AND s.created_at=?) AND EXISTS (SELECT 1 FROM editions e WHERE e.id=? AND e.is_test=1 AND e.payload=?)")
+        .bind(now, s.id, s.id, epoch, markerId, payload),
+    ]);
+    const recorded = await db.prepare("SELECT payload FROM editions WHERE id=? AND is_test=1")
+      .bind(markerId).first<{ payload: string }>();
+    s = await db.prepare("SELECT * FROM subscribers WHERE email=?").bind(recipient).first<Subscriber>();
+    restart = await readRestart();
+    return { status: recorded?.payload === payload ? "restarted" : recorded ? "restart-already-recorded" : "test-restart-unavailable", ...(await status()) };
+  }
   if (s && ["suppressed", "unsubscribed"].includes(s.status))
     return { status: "recipient-suppressed", ...(await status()) };
+  if (restartData() && restartData()!.runId !== a.runId)
+    return { status: "stale-test-run", ...(await status()) };
   const now = new Date().toISOString();
   if (!s) {
     if (a.action !== "confirmation") throw new Error("Confirm the test mailbox first");
@@ -247,6 +304,7 @@ export async function mailTest(
     if (!s || s.is_test !== 1) throw new Error("Test recipient unavailable");
   }
   const kind = a.action === "confirmation" ? "confirmation" : "weekly";
+  const runArgs = [a.runId, a.runId];
   const deliveryId = `test:${a.runId}:${s.id}:${kind}`;
   const existing = await db.prepare("SELECT id FROM deliveries WHERE id=?").bind(deliveryId).first();
   if (!existing) {
@@ -259,19 +317,23 @@ export async function mailTest(
         "SELECT id FROM deliveries WHERE subscriber_id=? AND is_test=1 AND kind='confirmation' AND (status IN ('sending','uncertain') OR (status IN ('queued','submitted','delivered') AND ? > ?)) LIMIT 1",
       ).bind(s.id, s.token_expires || "", now).first();
       if (unresolved) return { status: "confirmation-already-pending", ...(await status()) };
-      const expires = new Date(Date.parse(now) + 86400000).toISOString();
+      const previousExpiry = Date.parse(restartData()?.previousTokenExpires || "");
+      // Restarting in the same millisecond must not recreate an old token.
+      const expires = new Date(Math.max(Date.parse(now) + 86400000,
+        restart ? Date.parse(s.created_at) + 86400000 : 0,
+        Number.isFinite(previousExpiry) ? previousExpiry + 1 : 0)).toISOString();
       await db.batch([
         // D1 executes the batch transactionally: a second run must observe the
         // winner before it can create a live confirmation for this recipient.
-        db.prepare("INSERT OR IGNORE INTO deliveries(id,subscriber_id,kind,status,created_at,updated_at,is_test) SELECT ?,s.id,'confirmation','queued',?,?,1 FROM subscribers s WHERE s.id=? AND s.is_test=1 AND s.status='pending' AND NOT EXISTS (SELECT 1 FROM deliveries d WHERE d.subscriber_id=s.id AND d.is_test=1 AND d.kind='confirmation' AND (d.status IN ('sending','uncertain') OR (d.status IN ('queued','submitted','delivered') AND s.token_expires>?)))")
-          .bind(deliveryId, now, now, s.id, now),
+        db.prepare(`INSERT OR IGNORE INTO deliveries(id,subscriber_id,kind,status,created_at,updated_at,is_test) SELECT ?,s.id,'confirmation','queued',?,?,1 FROM subscribers s WHERE s.id=? AND lower(s.email)=? AND s.is_test=1 AND s.status='pending' AND ${activeTestRunSql} AND NOT EXISTS (SELECT 1 FROM deliveries d WHERE d.subscriber_id=s.id AND d.is_test=1 AND d.kind='confirmation' AND (d.status IN ('sending','uncertain') OR (d.status IN ('queued','submitted','delivered') AND s.token_expires>?)))`)
+          .bind(deliveryId, now, now, s.id, recipient, ...runArgs, now),
         // created_at ties expiry rotation to this successful insertion. A
         // same-millisecond replay computes the identical expiry, so cannot
         // invalidate the winner's link. Later replays cannot rotate it.
-        db.prepare("UPDATE subscribers SET token_expires=? WHERE id=? AND is_test=1 AND status='pending' AND EXISTS (SELECT 1 FROM deliveries d WHERE d.id=? AND d.created_at=? AND d.status='queued')")
-          .bind(expires, s.id, deliveryId, now),
-        db.prepare("UPDATE deliveries SET status='cancelled',updated_at=? WHERE subscriber_id=? AND is_test=1 AND kind='confirmation' AND status='queued' AND id<>? AND EXISTS (SELECT 1 FROM deliveries winner WHERE winner.id=? AND winner.created_at=? AND winner.status='queued')")
-          .bind(now, s.id, deliveryId, deliveryId, now),
+        db.prepare(`UPDATE subscribers SET token_expires=? WHERE id=? AND is_test=1 AND status='pending' AND EXISTS (SELECT 1 FROM subscribers s WHERE s.id=subscribers.id AND ${activeTestRunSql}) AND EXISTS (SELECT 1 FROM deliveries d WHERE d.id=? AND d.created_at=? AND d.status='queued')`)
+          .bind(expires, s.id, ...runArgs, deliveryId, now),
+        db.prepare(`UPDATE deliveries SET status='cancelled',updated_at=? WHERE subscriber_id=? AND is_test=1 AND kind='confirmation' AND status='queued' AND id<>? AND EXISTS (SELECT 1 FROM subscribers s WHERE s.id=deliveries.subscriber_id AND ${activeTestRunSql}) AND EXISTS (SELECT 1 FROM deliveries winner WHERE winner.id=? AND winner.created_at=? AND winner.status='queued')`)
+          .bind(now, s.id, deliveryId, ...runArgs, deliveryId, now),
       ]);
     } else {
       if (s.status !== "confirmed") throw new Error("Confirm the test mailbox first");
@@ -280,14 +342,14 @@ export async function mailTest(
       if (!items.length) return { status: "empty", ...(await status()) };
       const editionId = `test:${a.runId}:${s.id}`;
       await db.batch([
-        db.prepare("INSERT OR IGNORE INTO editions(id,payload,created_at,is_test) VALUES(?,?,?,1)")
-          .bind(editionId, JSON.stringify({ items, through: now }), now),
-        db.prepare("INSERT OR IGNORE INTO deliveries(id,subscriber_id,edition_id,kind,status,created_at,updated_at,is_test) VALUES(?,?,?,'weekly','queued',?,?,1)")
-          .bind(deliveryId, s.id, editionId, now, now),
+        db.prepare(`INSERT OR IGNORE INTO editions(id,payload,created_at,is_test) SELECT ?,?,?,1 FROM subscribers s WHERE s.id=? AND lower(s.email)=? AND s.is_test=1 AND s.status='confirmed' AND ${activeTestRunSql}`)
+          .bind(editionId, JSON.stringify({ items, through: now }), now, s.id, recipient, ...runArgs),
+        db.prepare(`INSERT OR IGNORE INTO deliveries(id,subscriber_id,edition_id,kind,status,created_at,updated_at,is_test) SELECT ?,s.id,?,'weekly','queued',?,?,1 FROM subscribers s WHERE s.id=? AND lower(s.email)=? AND s.is_test=1 AND s.status='confirmed' AND ${activeTestRunSql}`)
+          .bind(deliveryId, editionId, now, now, s.id, recipient, ...runArgs),
       ]);
     }
   }
-  const result = await deliverQueued(db, c, 1, { deliveryId, recipient });
+  const result = await deliverQueued(db, c, 1, { deliveryId, recipient, runId: a.runId });
   s = await db.prepare("SELECT * FROM subscribers WHERE id=?").bind(s.id).first<Subscriber>();
   return { ...result, ...(await status()) };
 }
@@ -299,15 +361,15 @@ async function deliverQueued(
   db: Database,
   c: MailConfig,
   limit: number,
-  test?: { deliveryId: string; recipient: string },
+  test?: { deliveryId: string; recipient: string; runId: string },
 ) {
   if (test ? !mailTestReady(c) : !mailReady(c))
     return { status: "pending-activation", submitted: 0 };
   let submitted = 0;
   const scope = test
-    ? "d.is_test=1 AND s.is_test=1 AND d.id=? AND lower(s.email)=?"
+    ? `d.is_test=1 AND s.is_test=1 AND d.id=? AND lower(s.email)=? AND ${activeTestRunSql}`
     : "d.is_test=0 AND s.is_test=0";
-  const scopeArgs = test ? [test.deliveryId, test.recipient] : [];
+  const scopeArgs = test ? [test.deliveryId, test.recipient, test.runId, test.runId] : [];
   // A process lost after submission may have sent mail. Never blindly retry it.
   await db
     .prepare(
@@ -341,9 +403,9 @@ async function deliverQueued(
       day = singaporeDay();
     const claim = await db
       .prepare(
-        "UPDATE deliveries SET status='sending',attempted_at=?,updated_at=? WHERE id=? AND status='queued' AND EXISTS (SELECT 1 FROM subscribers s WHERE s.id=deliveries.subscriber_id AND ((deliveries.kind='weekly' AND s.status='confirmed') OR (deliveries.kind='confirmation' AND s.status='pending' AND s.token_expires>?))) RETURNING id",
+        `UPDATE deliveries SET status='sending',attempted_at=?,updated_at=? WHERE id=? AND status='queued' AND EXISTS (SELECT 1 FROM subscribers s WHERE s.id=deliveries.subscriber_id AND ((deliveries.kind='weekly' AND s.status='confirmed') OR (deliveries.kind='confirmation' AND s.status='pending' AND s.token_expires>?))${test ? ` AND s.is_test=1 AND deliveries.is_test=1 AND lower(s.email)=? AND ${activeTestRunSql}` : ""}) RETURNING id`,
       )
-      .bind(now, now, d.id, now)
+      .bind(now, now, d.id, now, ...(test ? [test.recipient, test.runId, test.runId] : []))
       .first();
     if (!claim) continue;
     const quota = await db
