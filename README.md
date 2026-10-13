@@ -5,8 +5,13 @@ AG-UI.AI is an independent bilingual news, timeline and research publication foc
 For dated release status, verification results and continuation constraints, read
 [the public project context](docs/PROJECT_CONTEXT.md) and
 [the engineering snapshot](docs/CURRENT_STATE.json). The October 13, 2026
-handoff records v12 as published with public email enabled; GitHub synchronization
-is tracked separately in [PR #3](https://github.com/AutoGenUI/ag-ui.ai/pull/3).
+handoff records v12 as published with public email enabled. GitHub synchronization
+and CI repairs were merged in [PR #3](https://github.com/AutoGenUI/ag-ui.ai/pull/3);
+GitHub merging does not deploy Sites.
+
+Maintainers and coding agents should start with [the operations handoff](docs/operations/README.md):
+DNSPod/domain maintenance, Brevo subscriptions and delivery, owner/MCP access,
+existing schedules, Sites deployment, managed D1, verification and rollback.
 
 > Independent community resource. This project is not affiliated with or endorsed by the maintainers of AG-UI, A2UI, OpenUI, json-render, MCP, CopilotKit, or other technologies it covers.
 
@@ -29,7 +34,7 @@ The shared DeepSeek trial is off by default. Set `TRIAL_ENABLED=true` and the se
 Requires Node.js 22.13 or newer.
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
@@ -58,7 +63,8 @@ Markdown lives under `content/{en,zh}/{technologies,learn,updates}`. A bilingual
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) and [EDITORIAL_POLICY.md](EDITORIAL_POLICY.md) before changing guidance.
 
-Release evidence and the public-launch decision boundary are tracked in [docs/LAUNCH_CHECKLIST.md](docs/LAUNCH_CHECKLIST.md).
+Current release and maintenance procedures are in [the operations handoff](docs/operations/README.md).
+[docs/LAUNCH_CHECKLIST.md](docs/LAUNCH_CHECKLIST.md) preserves the historical atlas launch baseline.
 
 ## Licensing
 

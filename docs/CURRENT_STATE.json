@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "scope": "Public engineering snapshot; not live production configuration",
   "handoff": {
     "observedAt": "2026-10-13T05:26:10.881Z",
@@ -28,22 +28,33 @@
     "existingSchedulesPreserved": true
   },
   "github": {
-    "observedAt": "2026-10-13T08:50:00Z",
+    "observedAt": "2026-10-13T09:18:00Z",
     "repository": "AutoGenUI/ag-ui.ai",
     "defaultBranch": "main",
-    "mainAtObservation": "c628886cda20756fedd044c3c076bb6b7850d0e4",
-    "syncBranch": "codex/ag-ui-ai-v12-sync",
+    "mainAtObservation": "24edc498f5c135e283d773d946fcab3e99d239bd",
+    "syncBranch": null,
     "pullRequest": "https://github.com/AutoGenUI/ag-ui.ai/pull/3",
-    "draftAtObservation": true,
-    "mergedAtObservation": false,
+    "draftAtObservation": false,
+    "mergedAtObservation": true,
     "codeAndCiVerificationCommit": "b0f0a40748474e3ce1f5918a7f9c4acff6f1a4f3",
     "documentationCommitsFollowVerificationCommit": true,
     "importedSourceCommits": 11,
     "importedTrackedFiles": 174,
     "conflicts": [],
-    "primaryMainPreserved": "525ec78904ab7e2b97717adc7ac13bfd3f5f3db0",
     "requiredCheck": "verify",
-    "branchProtectionPreserved": true
+    "branchProtectionPreserved": true,
+    "historicalSyncBranch": "codex/ag-ui-ai-v12-sync",
+    "mergedAt": "2026-10-13T09:03:38Z",
+    "validatedPullRequestHead": "800cf6202bffc2ce2952b65bb813377f5398169b",
+    "validatedTree": "46d9bda9cead65231bb02bf7bded7792374a5b44",
+    "primaryMainBeforeSynchronization": "525ec78904ab7e2b97717adc7ac13bfd3f5f3db0",
+    "primaryMainAtObservation": "24edc498f5c135e283d773d946fcab3e99d239bd",
+    "branchPolicy": "Keep only main after completed iterations; temporary PR branches allowed and cleaned after verified merge",
+    "branchesAtLastCompletedCleanup": [
+      "main"
+    ],
+    "recoverablePreCleanupBundleVerified": true,
+    "protectedManagedWorktreeRetained": true
   },
   "verificationBaseline": {
     "historical": true,
@@ -87,11 +98,10 @@
     }
   },
   "ciRepair": {
-    "recordedAt": "2026-10-13T08:57:00Z",
+    "recordedAt": "2026-10-13T09:18:00Z",
     "evidence": "Clean independent Node 22 installation, installed-tree official-registry audit, focused and full local tests, final build, isolated Worker and browser verification",
-    "status": "local-validation-passed-awaiting-required-verify",
-    "authorizedScope": "Repair dependency audit and bundle size on the v12 sync branch, then merge PR #3 after required checks pass; preserve other branches and protection",
-    "branch": "codex/ag-ui-ai-v12-sync",
+    "status": "merged-and-required-verify-passed",
+    "authorizedScope": "Repair dependency audit and bundle size, merge PR #3 normally after required checks, then clean merged branches under later user authorization; preserve main protection",
     "remoteHeadBeforeRepair": "09f361cf01874bd53a19c9cf613c6e3c46030f20",
     "mainBeforeRepair": "c628886cda20756fedd044c3c076bb6b7850d0e4",
     "recoverableGitSnapshotSaved": true,
@@ -181,7 +191,7 @@
         "bilingualContentDocuments": 24,
         "lintErrors": 0,
         "lintWarnings": 2,
-        "links": "CI check pending"
+        "links": "passed in required GitHub verify"
       },
       "build": {
         "status": "passed",
@@ -219,13 +229,21 @@
         "limits": "No claim of exhaustive third-party package verification or proven remote DoS"
       },
       "requiredVerify": {
-        "status": "pending-for-final-push",
-        "url": null
+        "status": "passed",
+        "head": "800cf6202bffc2ce2952b65bb813377f5398169b",
+        "url": "https://github.com/AutoGenUI/ag-ui.ai/actions/runs/38373256593/job/115215183686"
+      },
+      "postMergeVerify": {
+        "status": "passed",
+        "head": "24edc498f5c135e283d773d946fcab3e99d239bd",
+        "url": "https://github.com/AutoGenUI/ag-ui.ai/actions/runs/38373624876/job/115216417348"
       }
     },
     "productionSourceUnchanged": "6027589c4bac13e456ad47d5ef2f0981ef18d94e",
-    "pushedAtObservation": false,
-    "mergedAtObservation": false
+    "pushedAtObservation": true,
+    "mergedAtObservation": true,
+    "historicalBranch": "codex/ag-ui-ai-v12-sync",
+    "rebasedRepairCommit": "c62c5c874d408c35635adc0ee74f299f8012d7c2"
   },
   "limitations": {
     "anonymousEmailTrackingNotEquivalentToDisabledTracking": true,
@@ -241,9 +259,29 @@
     "testsUseIsolatedLocalD1AndDisabledMail": true
   },
   "openEngineeringWork": [
-    "Push code and context commits",
-    "Pass latest-head required verify including links",
-    "Merge PR #3 normally with branch protection and retained branches"
+    "Track 8 moderate dependencies without weakening the audit gate",
+    "Preserve bundle budgets; baseline raw JavaScript margin is 1169 bytes",
+    "Verify complete Brevo tracking disablement and keep bilingual disclosures accurate",
+    "Recheck restricted-network accessibility without promising global access",
+    "Observe real queued cancellation and additional bounce scenarios only under authorized acceptance",
+    "Before authorized production maintenance, refresh account permissions, full DNS/DKIM inventory, actual Sites deployment, D1 migration ledger and backup/restore capability, schedules and provider allowance"
   ],
-  "refreshRule": "Read live GitHub state before the next iteration; use dated handoff evidence for production until an authorized refresh. Keep private operational data outside this repository."
+  "refreshRule": "Before the next iteration read live GitHub state and docs/operations/README.md; use dated handoff evidence for production until an authorized refresh. GitHub merge does not deploy Sites. Keep private operational data outside this repository.",
+  "operationsHandoff": {
+    "scope": "Public maintenance documentation; not production account inspection or deployment",
+    "index": "docs/operations/README.md",
+    "manuals": [
+      "docs/operations/dns-maintenance.md",
+      "docs/operations/email-subscriptions.md",
+      "docs/operations/owner-management.md",
+      "docs/operations/deployment-maintenance.md"
+    ],
+    "siteProjectIdentityFile": ".openai/hosting.json",
+    "productionSecretsOrAccountStateRead": false,
+    "publicDnsTlsObservedAt": "2026-10-13T09:26:00Z",
+    "publicHttpsFromCurrentEgress": "Cloudflare 403; not a new browser acceptance",
+    "accountDnsInventoryAndDkimSelectorVerified": false,
+    "managedD1BackupRestoreCapabilitiesVerified": false,
+    "documentationCommit": "Query GitHub; this snapshot does not self-reference its own commit"
+  }
 }

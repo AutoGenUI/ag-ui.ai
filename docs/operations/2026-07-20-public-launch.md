@@ -1,5 +1,11 @@
 # AG-UI.AI public launch record
 
+Historical record of the first atlas launch. DNS verification values, certificate
+dates, quality counts and rollback boundaries below describe July 20, 2026;
+they are not instructions to restore current production. v12 uses D1 and public
+subscriptions. Current procedures: [maintenance index](README.md),
+[DNS maintenance](dns-maintenance.md), [deployment maintenance](deployment-maintenance.md).
+
 ## Pre-change snapshot
 
 - Captured at: `2026-07-20T08:25:33Z`
@@ -11,7 +17,7 @@
 - Sites access: owner-only custom access with one allowed user.
 - Sites custom domains: none.
 
-## Rollback boundary
+## Historical rollback boundary
 
 If launch validation fails, remove only the DNS records added for this launch,
 remove the two Sites custom-domain bindings if necessary, and restore Sites to
@@ -80,9 +86,11 @@ negotiation succeeds, and two independent public fetch services retrieved the
 deployed content successfully. A manual browser check from a non-blocked egress
 remains useful as a post-launch observation; it is not a rollback trigger.
 
-## Current rollback point
+## Historical post-launch rollback point
 
-The site is public and both custom domains are active. If a rollback is later
-required, remove only the seven records listed above, remove the two Sites
-custom-domain bindings, and restore owner-only Sites access. The DNSPod
-nameserver delegation must remain unchanged.
+At this launch, the accepted rollback was removal of the seven new records and
+two Sites domain bindings, with a return to owner-only access and unchanged
+DNSPod nameserver delegation. That pre-mail plan is superseded for v12:
+do not delete those records or bindings as a generic code, email or network fix.
+Capture a current zone/deployment snapshot and follow the current maintenance
+manual for the explicitly authorized incident scope.

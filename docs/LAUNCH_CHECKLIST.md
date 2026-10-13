@@ -1,6 +1,10 @@
-# AG-UI.AI launch checklist
+# AG-UI.AI historical atlas launch checklist
 
-This document separates reproducible local evidence from state-changing GitHub, Sites, and DNS steps. A green local row does not authorize public launch.
+This is the original atlas launch baseline, preserved for traceability. Its
+product scope, dependency counts, asset budgets and pending external gates are
+historical observations, not the current newsroom/v12 state. The site now uses
+D1, subscriptions and owner operations. Read [the project context](PROJECT_CONTEXT.md)
+and [current maintenance procedures](operations/README.md) before an iteration.
 
 ## Product and content
 
@@ -51,6 +55,11 @@ This document separates reproducible local evidence from state-changing GitHub, 
 | DNS snapshot and records | Re-read DNSPod immediately before changes; use exact Sites A/CNAME/verification records | Pending approval |
 | Domain verification | Apex + `www`, TLS, HTTP→HTTPS, `www`→apex, localized routes, assets, OG | Pending DNS |
 
-## Rollback
+## Historical rollback boundary
 
-Before public launch, keep Sites private. After custom-domain launch, rollback means removing only the records added for Sites and restoring private access; Namecheap DNSPod nameservers remain unchanged.
+The original pre-subscription launch plan allowed removing the newly added Sites
+records and restoring private access. It is not a v12 rollback procedure:
+removing routing/domain bindings now interrupts confirmation, unsubscribe,
+callbacks and owner tools. Use [deployment rollback](operations/deployment-maintenance.md)
+and [DNS maintenance](operations/dns-maintenance.md), with a current snapshot and
+the scope authorized for the incident.

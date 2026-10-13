@@ -2,6 +2,13 @@
 
 This file is an operation reference, not authorization. Only the Site owner's authenticated MCP connection can write. Never pass credentials in task prompts or source. Site readers cannot publish, send mail or read subscriber records.
 
+The October 13, 2026 verified handoff records production v12 with public email
+and existing collection/weekly schedules enabled. Activation paragraphs below
+apply to a new or rebuilt setup; they do not instruct an ordinary iteration to
+disable/re-enable mail, duplicate schedules or repeat real-mail acceptance.
+This document is not a live account inspection. Maintainer procedures and
+dated evidence are in [the operations handoff](https://github.com/AutoGenUI/ag-ui.ai/blob/main/docs/operations/README.md).
+
 ## Read, discover and resume
 
 1. Call `newsroom_read`. Read the saved news, source directory and latest successful collection checkpoint. Use news dates to distinguish new publication from historical backfill. Catch up from the last successful run, overlapping the previous 48 hours for revisions. If no successful run exists, review the last 90 days.
@@ -42,7 +49,7 @@ Operation `trend` takes `{slug,items:[published_event_slugs],zh:{title,summary,l
 
 ## Weekly queue and delivery
 
-On Mondays at 09:00 Asia/Singapore, call `digest` with `{week:"YYYY-MM-DD"}` using the Monday date. This freezes a bilingual edition from newly collected published events since the previous edition and creates at most one delivery per confirmed subscriber and edition, filtered to their interests. Empty editions are skipped. Old backfills retain their event dates. Call `drain` with `{}` on every collection and weekly run. Mail remains disabled until Brevo domain, secrets and real delivery acceptance are configured. A pending-activation result is expected, not proof of sending. Never enable or purchase a plan from an unattended task.
+On Mondays at 09:00 Asia/Singapore, call `digest` with `{week:"YYYY-MM-DD"}` using the Monday date. This freezes a bilingual edition from newly collected published events since the previous edition and creates at most one delivery per confirmed subscriber and edition, filtered to their interests. Empty editions are skipped. Old backfills retain their event dates. Call `drain` with `{}` on every collection and weekly run. For a setup whose activation gates have not passed, mail remains disabled until Brevo domain, secrets and real delivery acceptance are configured; a pending-activation result is not proof of sending. Preserve already accepted production configuration. Never enable or purchase a plan from an unattended task.
 
 The local cap is 300 submissions/day with 50 reserved for confirmation (weekly submissions stop at 250). Quota is conservative: uncertain attempts count. Submitted is not delivered. Never automatically retry `uncertain` mail: reconcile Brevo logs with the Site owner. Unsubscribe, complaint and hard bounce suppress further mail. Brevo may record opens and clicks; do not use these records to decide whether to send mail or as proof that an email was read.
 
