@@ -5,8 +5,8 @@
 ## 证据时间与状态区分
 
 - **生产交接快照**：2026-10-13 05:26:10 UTC（新加坡时间 13:26:10），来自交接版本 28。本轮读取了经过校验的上下文文件，没有重新读取生产环境或邮件账户。
-- **GitHub 本机核验**：2026-10-13 06:19 UTC（新加坡时间 14:19），重新检查本地改动、远端 main、同步分支和 PR。
-- **本轮 CI 修复记录**：2026-10-13 08:57 UTC（新加坡时间 16:57），修复提交 `42c1e0c762621294652a9dacfe02b94f940bdf1e` 已完成独立安装、安装后审计、90 项测试、构建体积和本地浏览器验收。此文档提交前 PR #3 仍为草稿且未合并，待推送并通过 required `verify`。
+- **GitHub 合并与分支核验**：PR #3 于 2026-10-13 09:03:38 UTC 正常 rebase 合并，PR head 与 main 的 required `verify` 均通过。09:18 UTC 完成分支清理；维护文档更新前重新查询远端，仅 main 指向 `24edc498f5c135e283d773d946fcab3e99d239bd`。
+- **CI 修复证据**：2026-10-13 08:57 UTC 的本地验证之后，PR head `800cf6202bffc2ce2952b65bb813377f5398169b` 通过必需检查，main 再次通过。修复在 main 中的提交为 `c62c5c874d408c35635adc0ee74f299f8012d7c2`；原分支提交 `42c1e0c762621294652a9dacfe02b94f940bdf1e` 是 rebase 前历史身份。
 - 下表中的生产配置状态来自交接；GitHub 状态来自本机核验。二者不能互相替代。旧报告中的“公众邮件关闭”和交接中的“GitHub 尚未提交”分别属于更早的阶段。
 
 | 项目 | 状态及证据范围 |
@@ -16,14 +16,14 @@
 | v12 正式源码 | `6027589c4bac13e456ad47d5ef2f0981ef18d94e` |
 | 正式源码 tree | `f961865e0d744fffa8fffb3e4d978e8185f56f93` |
 | GitHub | [AutoGenUI/ag-ui.ai](https://github.com/AutoGenUI/ag-ui.ai)，默认分支 main |
-| 核验时远端 main | `c628886cda20756fedd044c3c076bb6b7850d0e4` |
-| GitHub 同步 | [PR #3](https://github.com/AutoGenUI/ag-ui.ai/pull/3)，分支 `codex/ag-ui-ai-v12-sync`，草稿、尚未合并 |
-| 修复前远端 PR head | `09f361cf01874bd53a19c9cf613c6e3c46030f20`；08:50 UTC 刷新时远端 main 和另一个分支均未改变 |
-| 本轮已验证修复 | `42c1e0c762621294652a9dacfe02b94f940bdf1e`；文档提交及 GitHub 检查在其后 |
-| 代码/CI 核验基线 | `b0f0a40748474e3ce1f5918a7f9c4acff6f1a4f3`，完整导入 v12 后追加隔离本地 Worker 的 CI 修正 |
+| 文档更新前 main | `24edc498f5c135e283d773d946fcab3e99d239bd`；不循环记录本文自身提交 |
+| GitHub 同步 | [PR #3](https://github.com/AutoGenUI/ag-ui.ai/pull/3) 已合并，原同步分支已删除 |
+| 分支策略 | 长期仅保留 main；短期 PR 分支合并、核对后删除；主分支保护保留 |
+| 主线已验证修复 | `c62c5c874d408c35635adc0ee74f299f8012d7c2`；90 项测试及原安全/体积门槛通过 |
+| 早期失败基线 | `b0f0a40748474e3ce1f5918a7f9c4acff6f1a4f3`，下文只作历史对照 |
 | 公众邮件 | 交接记录已开放；域名认证与真实投递验收通过，无需重新开启 |
 
-本次文档提交接续上述核验基线。最新 PR head 和检查应以 GitHub 为准，不将文档自身的提交 SHA 循环写入本文。
+后续维护先读 [运维交接总入口](operations/README.md)：DNSPod、邮件订阅、owner/MCP、部署、D1、任务和回滚都有独立手册。最新文档提交及检查查询 GitHub，不将文档自身提交 SHA 循环写入本文。
 
 ## 产品与技术入口
 
@@ -62,7 +62,7 @@
 
 代码交接包的 checksum、bundle 前提、174 个受跟踪文件、ZIP 内容、Git blob 与 tree 重新校验一致。正式源码包含相对给定 main 的 11 个提交、102 个差异路径（83 新、19 改、0 删）。原本机 main 的 4 个提交包含在该历史中。
 
-同步使用独立 worktree，已有可恢复 Git 快照；原 main 保留在 `525ec78904ab7e2b97717adc7ac13bfd3f5f3db0`，未覆盖本地工作。首次同步核验时两个 checkout 都没有未提交改动，同步分支与远端一致，远端 main 未新增提交。完整 v12 导入无冲突。本轮修复仅在同步 worktree 中提交；原 checkout 的分支、依赖目录与工作文件保持不变。
+同步及修复使用独立 worktree，并保存可恢复 Git 快照。首次同步时原 main 为 `525ec78904ab7e2b97717adc7ac13bfd3f5f3db0`，完整 v12 导入无冲突。之后按用户授权，将原 main 的四项补丁与合并历史逐项核对为等价内容，原 checkout main 已安全同步到 `24edc498…`，没有丢弃本地工作；原依赖目录未覆盖。分支清理前另存完整 bundle，核对同步分支 tree、range-diff 与另一个分支的补丁等价后删除已合并分支。受保护的同步 worktree 保留为 detached checkout；后续文档任务复用它创建临时 PR 分支。
 
 首次同步在正式源码之外追加 CI 和公开文档。CI 增加 TypeScript、新闻/邮件、订阅 UI 测试，以及隔离本地 D1/Worker 的初始化、ready 等待与清理；保留全部原检查和阈值。本轮依赖及构建修复是生产 v12 之后的 GitHub 分支迭代，尚未部署到 Sites。
 
@@ -77,11 +77,11 @@
 | 体积预算 | 失败；Node 24 构建 JS 934566 / gzip 275319 字节，CSS 132412 / gzip 24990 字节，均超过既有预算 |
 | GitHub required `verify` | [基线运行失败](https://github.com/AutoGenUI/ag-ui.ai/actions/runs/38353374564/job/115150601215)，停在安全审计，后续步骤被跳过 |
 
-main 的 required `verify`、严格更新要求、管理员约束、线性历史及禁止 force-push/删除均保留。未绕过失败、降低安全或体积阈值。PR 为草稿且尚未合并；代码已上线不意味着 GitHub 验证通过。
+以上是修复前的历史失败结果。随后保留安全与体积门槛完成修复并通过 CI、合并 PR #3；main 的 required `verify`、严格更新要求、管理员约束、线性历史及禁止 force-push/删除均保留。未使用 bypass。生产 v12 与修复后 GitHub 主线仍是不同发布状态。
 
-## 本轮 CI 修复进度
+## 已合并 CI 修复与验证
 
-用户已授权在 `codex/ag-ui-ai-v12-sync` 修复安全审计与资源体积问题，通过现有 PR 合入 main，并保留其他分支和主分支保护。修复开始前已保存可恢复 Git 快照。以下本地验证对应修复提交 `42c1e0c762621294652a9dacfe02b94f940bdf1e`；不能替代最新 PR head 的 GitHub required `verify`。
+用户已授权在 v12 同步分支修复安全审计与资源体积问题，并通过 PR #3 合入 main。修复开始前保存可恢复 Git 快照；后续按用户新指示清理已合并分支，只保留 main。下列本地验证对应原修复提交 `42c1e0c762621294652a9dacfe02b94f940bdf1e`；最新 PR head 和 main 的 GitHub required `verify` 另有链接证据。
 
 - 定向更新 Next 和 `eslint-config-next` 至 `16.3.8`，React、React DOM、React Server DOM Webpack 至 `19.2.8`；Cloudflare Vite 插件至 `1.63.1`、Wrangler 至 `4.149.0`，PostCSS 至 `8.5.30`、Sharp 至 `0.35.5`，Vinext 内的 `image-size` 至 `2.0.4`。
 - Vinext `0.0.50`、AI SDK `7.0.34`、Zod `4.4.3` 与既有 Markdown 版本保留，避免将本次安全修复扩大为框架迁移。
@@ -98,9 +98,9 @@ main 的 required `verify`、严格更新要求、管理员约束、线性历史
 | 实测体积 / 原预算 | JS 918831 / 920000，JS gzip 266977 / 275000，CSS 115604 / 125000，CSS gzip 22853 / 24000 字节，全部通过；JS 原始体积余量 1169 字节 |
 | 浏览器 | 1440×900 和 390×844：新闻查询与筛选、中英课堂、选课、离线回答及 RUN_FINISHED、模型设置、手机课程/事件抽屉、中文时间线/趋势/订阅入口通过；无控制台错误，临时视口已恢复 |
 | 独立回归审阅 | 完成；上述边界发现已修复并回归，未发现其他具体绕过；不等于验证了第三方包的全部实现 |
-| GitHub required `verify` / 合并 | 本文记录时尚待推送运行。通过最新 head 的必需检查后，将 PR #3 转为 ready 并正常合并；保留其他分支及保护，不使用 bypass |
+| GitHub required `verify` / 合并 | [PR head 检查通过](https://github.com/AutoGenUI/ag-ui.ai/actions/runs/38373256593/job/115215183686)，PR #3 已正常合并，[main 检查通过](https://github.com/AutoGenUI/ag-ui.ai/actions/runs/38373624876/job/115216417348)，包括链接检查；保护未改变 |
 
-本文为带时间的本地验证快照。推送、检查和合并的最终状态以 [PR #3](https://github.com/AutoGenUI/ag-ui.ai/pull/3) 及远端 main 为准，后续接续必须刷新；不要把提交前状态当成实时 GitHub 状态。链接门槛仍由 CI 执行。剩余 moderate 项不会被隐藏，也不以降级检查或修改预算换取通过。
+以上为带时间和修订的本地及远端验证记录；后续接续仍需刷新 GitHub。剩余 moderate 项未隐藏，JS 原始体积余量很小，未来功能/依赖变化重新执行审计与预算；不降低检查门槛。
 
 ## 后续迭代
 
@@ -108,4 +108,6 @@ main 的 required `verify`、严格更新要求、管理员约束、线性历史
 
 当前 GitHub/文档接续范围不包含重新部署、DNS、邮件开关、秘密、定时任务或真实邮件。后续功能与发布以用户当轮授权为准，不从交接推定额外权限。保持零新增付费与默认无付费模型调用。
 
-本地 HTTP 验证只用隔离 D1 和本地 Worker，邮件三个开关均 false，无真实密钥，不使用生产站点作 `SITE_TEST_BASE_URL`，不伪造所有者。完整验证入口见 [README](../README.md) 与 [CI 工作流](../.github/workflows/ci.yml)。本地验证已完成，推送并通过最新 head 的 required `verify` 后才能合并。没有重新部署、DNS、生产配置、任务或真实邮件动作。
+本地 HTTP 验证只用隔离 D1 和本地 Worker，邮件三个开关均 false，无真实密钥，不使用生产站点作 `SITE_TEST_BASE_URL`，不伪造所有者。完整验证入口见 [README](../README.md)、[CI 工作流](../.github/workflows/ci.yml) 与 [部署维护](operations/deployment-maintenance.md)。本轮维护资料更新走临时 PR 分支与 required `verify`，完成后清理该分支；没有重新部署、DNS、生产配置、任务或真实邮件动作。
+
+当前待持续处理：moderate 依赖链、体积余量、完整关闭邮件跟踪、受限网络验证、真实排队取消及退信场景，以及授权生产维护时的账户权限/完整 DNS/迁移 ledger/托管 D1 备份恢复/实际任务运行状态刷新。不要把这些尚未核验事项记录为完成。
