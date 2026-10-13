@@ -6,6 +6,8 @@
 
 本站继续使用已有 Sites 项目、`ag-ui.ai` 和 `www.ag-ui.ai`。DNS 解析由 [DNSPod](https://www.dnspod.cn/) 管理；网站流量经过 Sites / Cloudflare，发信服务为 Brevo，发件地址为 `news@ag-ui.ai`。这四项服务职责不同：DNSPod 能修改解析，Sites 能绑定域名和部署，Brevo 能验证发信域名，但它们不自动授予彼此的管理权限。
 
+Brevo 帮助中心网页在自动检查出口可能返回 403；本文域名认证引用使用同一官方文章的公开 JSON 入口，内含标题、正文及可读版地址。这只解决文档读取，不代表登录了账户或验证了本站当前认证状态。
+
 2026-10-13 05:26 UTC 的交接记录 v12 已上线、公众邮件已开放、域名认证和真实邮件验收通过。本次维护文档补充只重新检查公共 DNS、HTTP 响应头和 TLS，没有登录 DNSPod、域名注册商、Brevo 或 Sites，没有修改 DNS、邮件开关或生产配置。这些交接事实不能代替当次登录后的账户状态核验。
 
 下表来自 **2026-10-13 09:25–09:26 UTC（新加坡时间 17:25–17:26）** 的公共只读检查。两台已知权威服务器分别查询；`structure.dnspod.net` 第一次 NS 查询超时，重试成功，其他列出的结果一致。记录是观察值，不是新建或恢复 DNS 的输入模板。
@@ -32,7 +34,7 @@ TLS 当次检查可完成证书链协商；HTTPS 请求未报告证书错误。`
 2. 进入 `ag-ui.ai` 的记录管理，核对域名、当前权威服务器、线路、启用状态、TTL 和操作日志。公开 `dig` 查询不能枚举完整 zone，也看不到禁用记录或所有线路策略。
 3. 在 DNSPod 的 DNS 解析 → 批量管理 → 导出记录中，选择 `ag-ui.ai` 并导出 TXT、XLS 或 ZONE 格式。完整导出只存放在所有者控制的私有交接位置；公开仓库保存日期、类型、用途和变更摘要，省略验证码、账户标识和私人内容。界面名称可能变化，应依据 [DNSPod 官方导出说明](https://docs.dnspod.cn/dns/record-bulk-export/) 和 [导出格式说明](https://docs.dnspod.cn/dns/parsing-record-file/) 核对。
 4. 在同一 Sites 项目读取 apex 和 `www` 的域名状态、TLS 状态、当前要求的解析和验证值；不要新建项目绕过旧项目。域名管理入口和工具可随 Sites 版本变化，见 [部署维护](deployment-maintenance.md)，以当前实际工具 / 管理界面为准。
-5. 在 Brevo 的 Settings → Senders, Domains, IPs → Domains 检查已有 `ag-ui.ai`。读取当次显示的认证状态、DKIM 名称、类型和目标，而不是重新添加同名域名。官方可能提供一条 TXT 或两条 CNAME DKIM 记录；每个账户、域名和密钥代际都必须按实际显示值核对。[Brevo 域名认证说明](https://help.brevo.com/hc/en-us/articles/12163873383186-Authenticate-your-domain-with-Brevo-Brevo-code-DKIM-DMARC)
+5. 在 Brevo 的 Settings → Senders, Domains, IPs → Domains 检查已有 `ag-ui.ai`。读取当次显示的认证状态、DKIM 名称、类型和目标，而不是重新添加同名域名。官方可能提供一条 TXT 或两条 CNAME DKIM 记录；每个账户、域名和密钥代际都必须按实际显示值核对。[Brevo 域名认证说明](https://help.brevo.com/api/v2/help_center/en-us/articles/12163873383186.json)
 6. 使用两台当前权威服务器和至少一个递归解析器核对该清单。只有账户清单与公开查询都核验后，才将新的“已验证”日期写入公开工程记录；不要把未获取 DKIM selector 等缺口写成通过。
 
 若需 API 自动化，只使用所有者已有的安全凭据来源和最小权限。DNSPod 当前建议 API 3.0 / CAM 权限管理，旧 `Record.List` 文档仅对应传统主账号 Token；不能把两套认证参数混用，也不要在命令行参数中嵌入密钥。[DNSPod API 文档](https://docs.dnspod.cn/api/)、[传统记录列表与认证范围](https://docs.dnspod.cn/api/record-list/)。本仓库没有内置 DNS 写入自动化，站点 `/mcp` 也不是 DNSPod 管理接口。
@@ -41,9 +43,9 @@ TLS 当次检查可完成证书链协商；HTTPS 请求未报告证书错误。`
 
 维护网站时保留发信认证，维护邮件时保留 Sites 路由和验证。`@` 的 A 记录可以与不同用途的 TXT 共存；`www` 的 CNAME 不应再叠加同名 A、URL 转发或 MX。DNSPod 对冲突和缓存含义的说明见 [解析设置相关](https://docs.dnspod.cn/dns/dns-resolve-set/)。不要为“简化”记录将 apex 改为 CNAME，或清空整区后仅恢复网站记录。
 
-发件地址 `news@ag-ui.ai` 不表示已经开通这个地址的收件箱。当前 apex 无 MX 记录，本轮未验证收件服务；新增 MX 必须先有实际邮箱服务和单独的变更授权。Brevo 的普通域名认证要求以账户实际给出的所有权、DKIM 和 DMARC 记录为准，官方并不要求为普通认证自行新增 SPF 或 MX；专用 IP 等其他配置可能不同。[Brevo 域名认证说明](https://help.brevo.com/hc/en-us/articles/12163873383186-Authenticate-your-domain-with-Brevo-Brevo-code-DKIM-DMARC)
+发件地址 `news@ag-ui.ai` 不表示已经开通这个地址的收件箱。当前 apex 无 MX 记录，本轮未验证收件服务；新增 MX 必须先有实际邮箱服务和单独的变更授权。Brevo 的普通域名认证要求以账户实际给出的所有权、DKIM 和 DMARC 记录为准，官方并不要求为普通认证自行新增 SPF 或 MX；专用 IP 等其他配置可能不同。[Brevo 域名认证说明](https://help.brevo.com/api/v2/help_center/en-us/articles/12163873383186.json)
 
-不能凭记忆添加 `include:`、复制其他站点的 DKIM 值或使用历史 Brevo 验证码。若未来确实需要 SPF，在同一名称只维护一条有效的 `v=spf1` 策略，先列出所有实际发信服务，再按其官方要求合并，避免破坏其他服务。DMARC 同一名称只维护一条有效记录；提高策略前须确认合法邮件的 DKIM / SPF 对齐、报告和投递验收，不能因为本站一次发信成功就覆盖现有策略。Brevo 自动认证可能提出替换已有 DMARC；已有生产域名维护优先逐项核对，未获本次修改授权不要接受替换。[Brevo 认证及已有 DMARC 的处理说明](https://help.brevo.com/hc/en-us/articles/12163873383186-Authenticate-your-domain-with-Brevo-Brevo-code-DKIM-DMARC)
+不能凭记忆添加 `include:`、复制其他站点的 DKIM 值或使用历史 Brevo 验证码。若未来确实需要 SPF，在同一名称只维护一条有效的 `v=spf1` 策略，先列出所有实际发信服务，再按其官方要求合并，避免破坏其他服务。DMARC 同一名称只维护一条有效记录；提高策略前须确认合法邮件的 DKIM / SPF 对齐、报告和投递验收，不能因为本站一次发信成功就覆盖现有策略。Brevo 自动认证可能提出替换已有 DMARC；已有生产域名维护优先逐项核对，未获本次修改授权不要接受替换。[Brevo 认证及已有 DMARC 的处理说明](https://help.brevo.com/api/v2/help_center/en-us/articles/12163873383186.json)
 
 DKIM 密钥轮换须按照 Brevo 给出的代际和操作流程，保留可能仍在验证的旧 selector，核对新 selector 的权威响应及 Brevo 认证结果后再安排退役。不要同时删除全部 selector；不要将 DKIM 私钥、服务端密钥或认证共享链接复制到公开说明。
 
