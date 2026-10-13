@@ -8,8 +8,8 @@ import {
 } from "@/lib/news/subscription-ui";
 
 type ManageLink = { id: string; token: string; action: "confirm" | "preferences" };
-type NoticeKind = "loading" | "confirm-ready" | "active" | "check-inbox" | "confirmed" | "preferences-saved" | "unsubscribed" | "suppressed" | "unconfirmed" | "capacity-full" | "unavailable" | "error" | "read-error" | "capacity-error";
-type Notice = { kind: NoticeKind; action?: SubscriptionAction };
+type NoticeKind = "loading" | "confirm-ready" | "active" | "check-inbox" | "rate-limited" | "confirmed" | "preferences-saved" | "unsubscribed" | "suppressed" | "unconfirmed" | "capacity-full" | "unavailable" | "error" | "read-error" | "capacity-error";
+type Notice = { kind: NoticeKind; action?: SubscriptionAction; retryAt?: string };
 
 export function Subscription({ locale }: { locale: Locale }) {
   const q = useSearchParams();
@@ -160,7 +160,7 @@ function SubscriptionView({ locale, initialLink, onManagementUrl }: {
         setSubscriber(result.subscriber); setLanguage(result.subscriber.locale); setTopics(result.subscriber.topics);
       }
       if (result.subscriberStatus) setSubscriber(current => current ? { ...current, status: result.subscriberStatus! } : null);
-      setNotice({ kind: result.reason === "unconfirmed" ? "unconfirmed" : result.kind, action });
+      setNotice({ kind: result.reason === "unconfirmed" ? "unconfirmed" : result.kind, action, retryAt: result.retryAt });
       // A capacity rejection or non-confirmed response must keep the original
       // confirmation URL. Tokens stay in client state and the intended URL.
       if (link && result.kind === "confirmed" && result.subscriber?.token) {
@@ -223,7 +223,11 @@ function SubscriptionView({ locale, initialLink, onManagementUrl }: {
         return current.kind === "active"
           ? ["✓", zh ? "订阅已生效" : "Your subscription is active", zh ? "可修改语言、主题或退订。" : "Change language and topics, or unsubscribe anytime."]
           : ["✓", zh ? "邮箱确认成功，订阅已生效" : "Email confirmed — your subscription is active", zh ? "现在可以设置语言与主题。每封周报都提供偏好与退订入口。" : "You can now set your language and topics. Every digest includes preference and unsubscribe links."];
-      case "check-inbox": return ["✉", zh ? "查看邮件，确认订阅" : "Check your email to confirm", zh ? "请查看收件箱与垃圾邮件，点击邮件链接确认。以页面成功提示为准；本提示不证明发信，待确认不占位，邮件可能受额度影响延迟。" : "Check inbox/spam and open the email link to confirm. Only the page’s success message proves activation. This notice does not prove email was sent. Pending requests reserve no place; daily limits may delay email."];
+      case "check-inbox": return ["✉", zh ? "查看邮件，确认订阅" : "Check your email to confirm", zh ? "请查看收件箱与垃圾邮件，点击邮件链接确认。以页面成功提示为准；本提示不证明发信，待确认不占位，邮件可能受额度影响延迟。" : "Open the inbox/spam email link to confirm. Only the page’s success message proves activation. This notice does not prove sending. Pending requests reserve no place; daily limits may delay email."];
+      case "rate-limited": {
+        const retryTime = new Date(current.retryAt!).toLocaleString(zh ? "zh-CN" : "en-GB", { timeZone: "Asia/Singapore", hour12: false });
+        return ["!", zh ? "申请过于频繁" : "Too many requests", zh ? `本次未发送新邮件。请在 ${retryTime}（新加坡时间 UTC+8）后重新提交。` : `This attempt sent no new email. Submit again after ${retryTime} (Singapore, UTC+8).`];
+      }
       case "preferences-saved": return ["✓", zh ? "订阅偏好已保存" : "Your preferences are saved", zh ? "这些语言与主题已保存。" : "These language and topic settings are saved."];
       case "unsubscribed": return ["✓", zh ? "已退订，后续邮件已停止" : "You are unsubscribed — future email is stopped", zh ? "后续确认邮件和周报已停止，不能编辑偏好或重复退订。仍可使用 RSS。" : "Future confirmation and digest emails are stopped; editing and repeated unsubscribe are disabled. RSS remains available."];
       case "suppressed": return ["⊘", zh ? "此邮箱已停止投递" : "Email delivery to this address is stopped", zh ? "投递已停止，不能保存偏好或恢复发信。可使用 RSS。" : "Delivery is stopped; preferences and restart are disabled. Use RSS."];
@@ -292,7 +296,7 @@ function SubscriptionView({ locale, initialLink, onManagementUrl }: {
         })()}
         {form}
         {manage && !confirmationMode && (subscriber?.status === "confirmed" || subscriber?.status === "pending") && <section id="unsubscribe" className="n-subscription-form n-subscription-unsubscribe-area" aria-label={zh ? "结束邮件订阅" : "Stop email updates"}><div><h3>{zh ? "取消邮件订阅" : "Cancel email updates"}</h3><p>{zh ? "停止后续邮件；仍可使用 RSS。" : "Stop future email. RSS remains available."}</p></div><button type="button" className="n-subscription-secondary n-subscription-unsubscribe-button" disabled={formLocked} onClick={() => void submit("unsubscribe")}>{busy === "unsubscribe" ? zh ? "正在退订…" : "Unsubscribing…" : subscriber.status === "pending" ? zh ? "取消订阅申请" : "Cancel subscription request" : zh ? "退订所有邮件" : "Unsubscribe from all email"}</button></section>}
-        <p className="n-small n-subscription-disclosure">{zh ? "邮件由 Brevo 投递。当前匿名打开与点击统计不关联具体联系人，但仍可能包含像素与链接跟踪；本站不依据这些统计决定发信或判断已读。" : "Email is delivered by Brevo. Anonymous open and click statistics are not associated with individual contacts, but tracking pixels and tracked links may remain. We do not use these statistics to decide whether to send email or as proof that an email was read."}</p>
+        <p className="n-small n-subscription-disclosure">{zh ? "邮件由 Brevo 投递。当前匿名打开与点击统计不关联具体联系人，但仍可能包含像素与链接跟踪；本站不依据这些统计决定发信或判断已读。" : "Brevo delivers email. Anonymous opens/clicks are not tied to contacts; tracking pixels and links may remain. These statistics do not determine sending or prove reading."}</p>
       </div>
       <aside className="n-subscription-sidebar" aria-label={zh ? "RSS 阅读方式" : "Read with RSS"}>
         <section className="n-rss-box">

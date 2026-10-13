@@ -785,5 +785,42 @@
       }
     ],
     "productionBrowserLimit": "No new production DOM claim; previous agent browser navigation blocked. Synthetic desktop/mobile browser proof and native deployment/HTTP evidence are recorded separately."
+  },
+  "subscriptionThrottleIteration": {
+    "phase": "candidate",
+    "baseCommit": "a7e282095610c62344b7a0f670cd3c454523e84d",
+    "observedOn": "2026-10-13",
+    "scope": "Explicit signup rate-limit feedback and owner-only exact-target read-only diagnostic; no quota reset, no mail send",
+    "record": "docs/iterations/2026-10-13-subscription-throttle.md",
+    "userAccepted": false,
+    "v101TagCreated": false,
+    "validation": {
+      "tests": {
+        "base": 35,
+        "newsAndMail": 64,
+        "ui": 12,
+        "http": 8,
+        "total": 119
+      },
+      "typescript": "passed",
+      "content": "passed",
+      "audit": {
+        "moderate": 8,
+        "high": 0,
+        "critical": 0
+      },
+      "lint": {
+        "errors": 0,
+        "warnings": 2
+      },
+      "bundle": {
+        "javascriptBytes": 919961,
+        "javascriptGzipBytes": 267637,
+        "cssBytes": 116185,
+        "cssGzipBytes": 23035
+      },
+      "browser": "local synthetic ZH desktop and EN mobile; retained input and ordered cards",
+      "noRealEmailSent": true
+    }
   }
 }

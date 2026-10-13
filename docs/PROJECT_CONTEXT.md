@@ -2,7 +2,11 @@
 
 本说明用于在同一个项目中持续迭代。它仅保留可公开的工程事实，未复制私人运营审计、账户、验收邮箱、生产数据或秘密值。机器可读记录见 [CURRENT_STATE.json](CURRENT_STATE.json)。
 
-## 当前迭代：普通订阅身份与统一卡片顺序（2026-10-13）
+## 当前迭代：订阅申请限流反馈（2026-10-13）
+
+普通订阅身份释放后的无效申请已复现为一个独立的申请限流路径：旧版超限也返回“查看邮件”，却不产生待发邮件。候选修复返回明确 HTTP 429 和下一固定窗口时间，并加入仅 owner、精确匹配固定目标的无发信只读诊断。限额与历史计数均保留，v1.0.1 继续等用户验收。详细证据与发布进展见 [本轮记录](iterations/2026-10-13-subscription-throttle.md)。
+
+## 前一迭代：普通订阅身份与统一卡片顺序（2026-10-13）
 
 用户最新要求覆盖上一轮的表单/反馈位置：容量卡片靠上，状态反馈统一在操作表单与取消/退订卡片之前。迭代基线 main `e3df53558f72534a7c6f43909b689b30e8ffb27b`。[PR #9](https://github.com/AutoGenUI/ag-ui.ai/pull/9) 正常合入 `5a4ef6df9ad0de3861aabb54ad0e838de83ade7b`，[PR verify](https://github.com/AutoGenUI/ag-ui.ai/actions/runs/38398627667/job/115300182530) 与 [main verify](https://github.com/AutoGenUI/ag-ui.ai/actions/runs/38398882271/job/115301067921) 全通过。下节 v14 仅为前一轮发布。
 

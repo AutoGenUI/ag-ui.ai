@@ -84,3 +84,7 @@ Surface an owner alert when more than 36 hours have elapsed since successful col
 ## Activation acceptance
 
 Before enabling schedules, a fresh cloud task must independently read an original public source, retrieve this file through the linked Site, call authenticated newsroom_read, write a verification run with a unique stable ID, and read back its succeeded record. Do not enable schedules on the strength of the local author's browser session. Owner identity is provided by Sites, not caller-supplied or hard-coded HTTP headers. If connection/Install is missing, request the supported Site plugin connection and stop activation until it works.
+
+## Manual delivery diagnosis
+
+Only an explicitly authorized owner may use mail-test action diagnose with expectedRecipient. It must exactly match the existing configured recipient. This read-only operation returns limited status, request-window and quota information without email addresses, IDs, signatures or raw provider errors. It neither sends mail nor resets any count. Do not invoke it from editorial schedules. Signup HTTP 429 means this attempt queued no new mail; the reader must retry after retryAt. Request limits and provider submission quota are separate.

@@ -336,13 +336,14 @@ export async function rateLimit(
   key: string,
   limit: number,
   windowMs = 3600000,
+  now = Date.now(),
 ): Promise<boolean> {
-  const bucket = Math.floor(Date.now() / windowMs);
+  const bucket = Math.floor(now / windowMs);
   const result = await db
     .prepare(
       "INSERT INTO rate_limits(key,count,expires_at) VALUES(?,1,?) ON CONFLICT(key) DO UPDATE SET count=count+1 WHERE count<? RETURNING count",
     )
-    .bind(`${key}:${bucket}`, Date.now() + windowMs, limit)
+    .bind(`${key}:${bucket}`, now + windowMs, limit)
     .first();
   return !!result;
 }

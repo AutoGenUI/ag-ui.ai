@@ -18,7 +18,8 @@ export type SubscriberView = {
 };
 export type SubscriptionAction = "signup" | "confirm" | "preferences" | "unsubscribe";
 export type SubscriptionOutcome = {
-  kind: "check-inbox" | "confirmed" | "preferences-saved" | "unsubscribed" | "suppressed" | "capacity-full" | "unavailable" | "error";
+  kind: "check-inbox" | "rate-limited" | "confirmed" | "preferences-saved" | "unsubscribed" | "suppressed" | "capacity-full" | "unavailable" | "error";
+  retryAt?: string;
   subscriber?: SubscriberView;
   subscriberStatus?: SubscriberView["status"];
   capacity?: SubscriptionCapacity;
@@ -74,6 +75,10 @@ export function parseSubscriberView(value: unknown): SubscriberView | null {
 // An HTTP success alone cannot prove confirmation, saving or unsubscribe.
 export function subscriptionOutcome(action: SubscriptionAction, httpStatus: number, value: unknown): SubscriptionOutcome {
   const v = record(value);
+  const retryAt = v?.retryAt;
+  if (action === "signup" && httpStatus === 429 && v?.status === "rate-limited" &&
+    typeof retryAt === "string" && Number.isFinite(Date.parse(retryAt)) && new Date(retryAt).toISOString() === retryAt)
+    return { kind: "rate-limited", retryAt };
   if (action === "signup" && httpStatus === 503 && v?.status === "pending-activation")
     return { kind: "unavailable" };
   if (httpStatus === 409 && v?.status === "capacity-full") {
