@@ -9,7 +9,7 @@ import {
 } from "./store";
 import { publicUrl, singaporeDay } from "./core";
 import { statsSummary } from "./analytics";
-import { drainQueue, mailReady, mailTest, queueDigest, type MailConfig } from "./mail";
+import { drainQueue, mailCapacity, mailTest, queueDigest, type MailConfig } from "./mail";
 import type { Database, Trend } from "./types";
 export const operations = [
   "context",
@@ -182,7 +182,7 @@ export async function operate(
       stats: await statsSummary(db, true),
       freshness: await freshness(db),
       email: {
-        enabled: mailReady(mail),
+        ...(await mailCapacity(db, mail)),
         day: singaporeDay(),
         used: Number(
           (
@@ -192,8 +192,6 @@ export async function operate(
               .first()
           )?.count || 0,
         ),
-        dailyLimit: 300,
-        weeklyLimit: 250,
         deliveryStates: (
           await db
             .prepare(
