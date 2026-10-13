@@ -56,11 +56,15 @@ public engineering records with dated evidence, not live configuration.
 - Current subscription layout is introduction, capacity, unified feedback,
   action form, cancellation/unsubscribe, then privacy. Keep feedback above
   the actions it explains across signup and signed management states.
-  Current candidate details are in
+  Prior iteration details are in
   [the normal subscription iteration](docs/iterations/2026-10-13-normal-subscription.md);
   [the v14 iteration](docs/iterations/2026-10-13-subscription-polish.md)
   records the previous layout and deployment. Do not predeclare deployment,
-  recipient release or a v1.0.1 tag before their actual evidence/authorization.
+  recipient release or a tag before their actual evidence/authorization.
+  The user explicitly authorized v1.0.1 tag, push and deployment on October 13,
+  2026. This supersedes the earlier wait-for-acceptance release gate, but is not
+  evidence of fresh inbox acceptance. Consult docs/releases/v1.0.1.md for the
+  completed tag/deployment mapping; preserve immutable existing tags.
 - Preserve accurate tracking and network disclosures. Anonymous Brevo
   tracking is not proof that pixels/rewritten links are disabled. Mainland
   accessibility is not guaranteed.

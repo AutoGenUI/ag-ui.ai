@@ -57,7 +57,7 @@
     "requiredCheck": "verify",
     "branchProtectionPreserved": true,
     "branchPolicy": "Keep only main after completed iterations; temporary PR branches allowed and cleaned after verified merge",
-    "documentationFollowup": "v16 deployment and request-limit diagnostic receipt; v1.0.1 still awaits user acceptance",
+    "documentationFollowup": "v1.0.1 authorized; actual tag and deployment evidence will be recorded after completion",
     "recoverablePreCleanupBundleVerified": true,
     "protectedManagedWorktreeRetained": true
   },
@@ -274,7 +274,7 @@
     "Observe real queued cancellation and additional bounce scenarios only under authorized acceptance",
     "Before authorized production maintenance, refresh account permissions, full DNS/DKIM inventory, actual Sites deployment, D1 migration ledger and backup/restore capability, schedules and provider allowance"
   ],
-  "refreshRule": "Read live GitHub and operations docs before maintenance. v15 is deployed with scoped historical test-role release verified; docs-only receipts may follow the matching code tree. v1.0.1 requires explicit user acceptance. Preserve immutable v1.0.0 and private operational data.",
+  "refreshRule": "Read live GitHub and Sites before maintenance. User authorized v1.0.1 on 2026-10-13; use release.phase and verified tag/deployment evidence, preserving historical snapshots and v1.0.0.",
   "operationsHandoff": {
     "scope": "Public maintenance documentation; not production account inspection or deployment",
     "index": "docs/operations/README.md",
@@ -386,138 +386,17 @@
     "protectedManagedWorktreeRetained": true
   },
   "release": {
-    "version": "1.0.0",
-    "phase": "completed",
-    "recordedAt": "2026-10-13T10:21:15Z",
-    "notes": "docs/releases/v1.0.0.md",
-    "github": {
-      "commit": "71ff116e033f0295a44415d13acd92bf1c0b97b6",
-      "tree": "661f59e806ce2174a33d6d87b9b44d0959400554",
-      "pullRequest": "https://github.com/AutoGenUI/ag-ui.ai/pull/5",
-      "mergedAt": "2026-10-13T10:13:52Z",
-      "pullRequestHead": "04c99295995993c93c0cb3596a55f049369601f7",
-      "requiredVerify": {
-        "status": "passed",
-        "url": "https://github.com/AutoGenUI/ag-ui.ai/actions/runs/38381641758/job/115243248665"
-      },
-      "postMergeVerify": {
-        "status": "passed",
-        "url": "https://github.com/AutoGenUI/ag-ui.ai/actions/runs/38381929658/job/115244227252"
-      },
-      "annotatedTag": "v1.0.0",
-      "remoteTagVerified": true,
-      "tagObject": "55ef990ca2a893c5d72e0a67806c2743cc832e6a",
-      "peeledCommit": "71ff116e033f0295a44415d13acd92bf1c0b97b6",
-      "releaseUrl": "https://github.com/AutoGenUI/ag-ui.ai/releases/tag/v1.0.0",
-      "publishedAt": "2026-10-13T10:18:34Z",
-      "draft": false,
-      "prerelease": false
-    },
-    "sites": {
-      "projectId": "appgprj_6a5dcacfcbb4819193bac2b2104ed926",
-      "versionNumber": 13,
-      "versionId": "appgprj_6a5dcacfcbb4819193bac2b2104ed926~appgver_e5bc604caacc819184c81bd223d5c9ee",
-      "sourceCommit": "8512d230c7df3bece70c503af02ff2acce0dbe9d",
-      "sourceTree": "661f59e806ce2174a33d6d87b9b44d0959400554",
-      "matchesGithubReleaseTree": true,
-      "deploymentId": "appgdep_6ace04b15f408191ad18bdcbbe4be3d3",
-      "status": "succeeded",
-      "completedAt": "2026-10-13T10:15:25.780042+00:00",
-      "environmentSetRevisionPreserved": 12,
-      "hasMcp": true,
-      "active": true,
-      "audience": "public",
-      "automationCount": 2
-    },
-    "validation": {
-      "localTests": {
-        "base": 35,
-        "newsAndMail": 42,
-        "subscriptionUi": 10,
-        "localHttp": 8,
-        "total": 95
-      },
-      "localChecks": [
-        "typescript",
-        "content",
-        "lint",
-        "build"
-      ],
-      "localD1Isolated": true,
-      "localMailDisabled": true,
-      "localBrowserViewports": [
-        "390x844",
-        "1440x900"
-      ],
-      "localBrowserLanguages": [
-        "zh",
-        "en"
-      ],
-      "focusTest": "Temporary CDP focus emulation; restored after verification; not a second physical-device test",
-      "audit": {
-        "moderate": 8,
-        "high": 0,
-        "critical": 0,
-        "unchangedHighSeverityGate": "passed"
-      },
-      "bundle": {
-        "javascriptBytes": 919625,
-        "javascriptGzipBytes": 267506,
-        "cssBytes": 115604,
-        "cssGzipBytes": 22853,
-        "budgetsPreserved": true,
-        "javascriptRawMarginBytes": 375
-      },
-      "productionReadOnlyChecks": {
-        "subscriptionPages": {
-          "zhHttp": 200,
-          "enHttp": 200
-        },
-        "rssHttp": {
-          "zh": 200,
-          "en": 200,
-          "compatibility": 200
-        },
-        "anonymousAdminHttp": 403,
-        "publicStatus": {
-          "enabled": true,
-          "confirmedPublic": 1,
-          "remaining": 249
-        },
-        "zhBrowser": {
-          "status": "passed",
-          "publicAggregateVisible": true,
-          "firstPartyStatisticsVisible": true,
-          "consoleErrors": 0
-        },
-        "enBrowser": {
-          "status": "not-completed",
-          "evidence": "HTTP and RSS passed; subsequent browser connection timed out, so no additional production English DOM assertion was made; this is not evidence of a site fault"
-        },
-        "network": {
-          "currentConfiguredEgressHttp": 200,
-          "directEgressHttp": 403,
-          "allNetworksAccessibleClaim": false
-        }
-      },
-      "links": "Passed in required GitHub verify; local documentation references also validated"
-    },
-    "userConfirmationReport": {
-      "date": "2026-10-13",
-      "evidence": "User reported a new inbox and active webpage confirmation with public count 1; no email or signed URL retained"
-    },
-    "boundaries": {
-      "schemaChanged": false,
-      "dnsChanged": false,
-      "productionMailGatesChanged": false,
-      "schedulesChanged": false,
-      "secretValuesReadOrExported": false,
-      "productionSubscriberRowsRead": false,
-      "newRealMailSent": false,
-      "newPaidActions": false
-    },
-    "rolloutLimit": "New client requires subscriptionType; use matching client and Worker and refresh open pages after rollback",
-    "documentationFollowup": "Receipt-only PR after publication does not redeploy Sites or move the immutable v1.0.0 tag; query GitHub for its eventual commit instead of self-reference"
+    "version": "1.0.1",
+    "phase": "authorized-preparing-protected-PR-and-deployment",
+    "authorizedOn": "2026-10-13",
+    "baseMain": "b0dbe4bd2a41be7c8908425050d8d275fc86e6c7",
+    "notes": "docs/releases/v1.0.1.md",
+    "authorization": "User explicitly requested v1.0.1 tag, code push and updated deployment; this supersedes earlier release waiting gates, not new inbox acceptance",
+    "tagCreated": false,
+    "githubReleaseCreated": false,
+    "realMailSent": false,
+    "schemaChanged": false,
+    "configurationChanged": false
   },
   "subscriptionPolish": {
     "recordedOn": "2026-10-13",
@@ -784,7 +663,9 @@
         "http": 403
       }
     ],
-    "productionBrowserLimit": "No new production DOM claim; previous agent browser navigation blocked. Synthetic desktop/mobile browser proof and native deployment/HTTP evidence are recorded separately."
+    "productionBrowserLimit": "No new production DOM claim; previous agent browser navigation blocked. Synthetic desktop/mobile browser proof and native deployment/HTTP evidence are recorded separately.",
+    "historical": true,
+    "supersededBy": "release.version 1.0.1 after explicit user authorization on 2026-10-13"
   },
   "subscriptionThrottleIteration": {
     "phase": "deployed-awaiting-user-acceptance",
@@ -828,6 +709,144 @@
     "deploymentCompletedAt": "2026-10-13T13:33:22.540158+00:00",
     "diagnosticVerified": true,
     "noCountersReset": true,
-    "noMailSent": true
+    "noMailSent": true,
+    "historical": true,
+    "supersededBy": "release.version 1.0.1 after explicit user authorization on 2026-10-13"
+  },
+  "releaseHistory": {
+    "v1.0.0": {
+      "version": "1.0.0",
+      "phase": "completed",
+      "recordedAt": "2026-10-13T10:21:15Z",
+      "notes": "docs/releases/v1.0.0.md",
+      "github": {
+        "commit": "71ff116e033f0295a44415d13acd92bf1c0b97b6",
+        "tree": "661f59e806ce2174a33d6d87b9b44d0959400554",
+        "pullRequest": "https://github.com/AutoGenUI/ag-ui.ai/pull/5",
+        "mergedAt": "2026-10-13T10:13:52Z",
+        "pullRequestHead": "04c99295995993c93c0cb3596a55f049369601f7",
+        "requiredVerify": {
+          "status": "passed",
+          "url": "https://github.com/AutoGenUI/ag-ui.ai/actions/runs/38381641758/job/115243248665"
+        },
+        "postMergeVerify": {
+          "status": "passed",
+          "url": "https://github.com/AutoGenUI/ag-ui.ai/actions/runs/38381929658/job/115244227252"
+        },
+        "annotatedTag": "v1.0.0",
+        "remoteTagVerified": true,
+        "tagObject": "55ef990ca2a893c5d72e0a67806c2743cc832e6a",
+        "peeledCommit": "71ff116e033f0295a44415d13acd92bf1c0b97b6",
+        "releaseUrl": "https://github.com/AutoGenUI/ag-ui.ai/releases/tag/v1.0.0",
+        "publishedAt": "2026-10-13T10:18:34Z",
+        "draft": false,
+        "prerelease": false
+      },
+      "sites": {
+        "projectId": "appgprj_6a5dcacfcbb4819193bac2b2104ed926",
+        "versionNumber": 13,
+        "versionId": "appgprj_6a5dcacfcbb4819193bac2b2104ed926~appgver_e5bc604caacc819184c81bd223d5c9ee",
+        "sourceCommit": "8512d230c7df3bece70c503af02ff2acce0dbe9d",
+        "sourceTree": "661f59e806ce2174a33d6d87b9b44d0959400554",
+        "matchesGithubReleaseTree": true,
+        "deploymentId": "appgdep_6ace04b15f408191ad18bdcbbe4be3d3",
+        "status": "succeeded",
+        "completedAt": "2026-10-13T10:15:25.780042+00:00",
+        "environmentSetRevisionPreserved": 12,
+        "hasMcp": true,
+        "active": true,
+        "audience": "public",
+        "automationCount": 2
+      },
+      "validation": {
+        "localTests": {
+          "base": 35,
+          "newsAndMail": 42,
+          "subscriptionUi": 10,
+          "localHttp": 8,
+          "total": 95
+        },
+        "localChecks": [
+          "typescript",
+          "content",
+          "lint",
+          "build"
+        ],
+        "localD1Isolated": true,
+        "localMailDisabled": true,
+        "localBrowserViewports": [
+          "390x844",
+          "1440x900"
+        ],
+        "localBrowserLanguages": [
+          "zh",
+          "en"
+        ],
+        "focusTest": "Temporary CDP focus emulation; restored after verification; not a second physical-device test",
+        "audit": {
+          "moderate": 8,
+          "high": 0,
+          "critical": 0,
+          "unchangedHighSeverityGate": "passed"
+        },
+        "bundle": {
+          "javascriptBytes": 919625,
+          "javascriptGzipBytes": 267506,
+          "cssBytes": 115604,
+          "cssGzipBytes": 22853,
+          "budgetsPreserved": true,
+          "javascriptRawMarginBytes": 375
+        },
+        "productionReadOnlyChecks": {
+          "subscriptionPages": {
+            "zhHttp": 200,
+            "enHttp": 200
+          },
+          "rssHttp": {
+            "zh": 200,
+            "en": 200,
+            "compatibility": 200
+          },
+          "anonymousAdminHttp": 403,
+          "publicStatus": {
+            "enabled": true,
+            "confirmedPublic": 1,
+            "remaining": 249
+          },
+          "zhBrowser": {
+            "status": "passed",
+            "publicAggregateVisible": true,
+            "firstPartyStatisticsVisible": true,
+            "consoleErrors": 0
+          },
+          "enBrowser": {
+            "status": "not-completed",
+            "evidence": "HTTP and RSS passed; subsequent browser connection timed out, so no additional production English DOM assertion was made; this is not evidence of a site fault"
+          },
+          "network": {
+            "currentConfiguredEgressHttp": 200,
+            "directEgressHttp": 403,
+            "allNetworksAccessibleClaim": false
+          }
+        },
+        "links": "Passed in required GitHub verify; local documentation references also validated"
+      },
+      "userConfirmationReport": {
+        "date": "2026-10-13",
+        "evidence": "User reported a new inbox and active webpage confirmation with public count 1; no email or signed URL retained"
+      },
+      "boundaries": {
+        "schemaChanged": false,
+        "dnsChanged": false,
+        "productionMailGatesChanged": false,
+        "schedulesChanged": false,
+        "secretValuesReadOrExported": false,
+        "productionSubscriberRowsRead": false,
+        "newRealMailSent": false,
+        "newPaidActions": false
+      },
+      "rolloutLimit": "New client requires subscriptionType; use matching client and Worker and refresh open pages after rollback",
+      "documentationFollowup": "Receipt-only PR after publication does not redeploy Sites or move the immutable v1.0.0 tag; query GitHub for its eventual commit instead of self-reference"
+    }
   }
 }
