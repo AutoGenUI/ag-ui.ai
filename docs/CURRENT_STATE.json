@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "scope": "Public engineering snapshot; not live production configuration",
+  "handoff": {
+    "observedAt": "2026-10-13T05:26:10.881Z",
+    "auditVersion": 28,
+    "sourceDocuments": ["START_HERE.md", "PROJECT_CONTEXT.md", "CURRENT_STATE.json", "TASK.md"],
+    "documentsAndCodeIntegrityVerified": true
+  },
+  "production": {
+    "evidence": "Verified handoff and user statement; not re-read in this synchronization",
+    "url": "https://ag-ui.ai",
+    "publishedVersion": 12,
+    "deploymentStatusAtHandoff": "succeeded",
+    "sourceCommit": "6027589c4bac13e456ad47d5ef2f0981ef18d94e",
+    "sourceTree": "f961865e0d744fffa8fffb3e4d978e8185f56f93",
+    "publicMailEnabledAtHandoff": true,
+    "domainVerifiedAtHandoff": true,
+    "mailAcceptancePassedAtHandoff": true,
+    "confirmedSubscriberCapacity": 250,
+    "dailySubmissionLimitAtHandoff": 300,
+    "weeklySubmissionBudgetAtHandoff": 250,
+    "existingSchedulesPreserved": true
+  },
+  "github": {
+    "observedAt": "2026-10-13T06:19:12Z",
+    "repository": "AutoGenUI/ag-ui.ai",
+    "defaultBranch": "main",
+    "mainAtObservation": "c628886cda20756fedd044c3c076bb6b7850d0e4",
+    "syncBranch": "codex/ag-ui-ai-v12-sync",
+    "pullRequest": "https://github.com/AutoGenUI/ag-ui.ai/pull/3",
+    "draftAtObservation": true,
+    "mergedAtObservation": false,
+    "codeAndCiVerificationCommit": "b0f0a40748474e3ce1f5918a7f9c4acff6f1a4f3",
+    "documentationCommitsFollowVerificationCommit": true,
+    "importedSourceCommits": 11,
+    "importedTrackedFiles": 174,
+    "conflicts": [],
+    "primaryMainPreserved": "525ec78904ab7e2b97717adc7ac13bfd3f5f3db0",
+    "requiredCheck": "verify",
+    "branchProtectionPreserved": true
+  },
+  "verificationBaseline": {
+    "commit": "b0f0a40748474e3ce1f5918a7f9c4acff6f1a4f3",
+    "evidence": "Earlier checks and receipts in this conversation; not a fresh full-suite run for documentation",
+    "passedTests": {"base": 18, "newsAndMail": 40, "subscriptionUi": 7, "localHttp": 8, "total": 73},
+    "passed": ["typescript", "content", "build", "links"],
+    "lintErrors": 0,
+    "lintWarnings": 2,
+    "audit": {"status": "failed", "moderate": 11, "high": 21, "critical": 1, "total": 33},
+    "bundle": {"status": "failed", "node": "24.16.0", "javascriptBytes": 934566, "javascriptGzipBytes": 275319, "cssBytes": 132412, "cssGzipBytes": 24990},
+    "requiredVerify": {"status": "failed", "step": "security:audit", "subsequentSteps": "skipped", "url": "https://github.com/AutoGenUI/ag-ui.ai/actions/runs/38353374564/job/115150601215"}
+  },
+  "limitations": {
+    "anonymousEmailTrackingNotEquivalentToDisabledTracking": true,
+    "completeTrackingDisablementVerified": false,
+    "mainlandAccessNotGuaranteed": true,
+    "realQueuedCancellationObserved": false
+  },
+  "synchronizationBoundaries": {
+    "productionChanges": false,
+    "secretValuesReadOrExported": false,
+    "realMailSent": false,
+    "newPaidActions": false,
+    "testsUseIsolatedLocalD1AndDisabledMail": true
+  },
+  "openEngineeringWork": ["Resolve dependency audit findings", "Reduce assets within existing bundle budgets", "Pass required verify before merge"],
+  "refreshRule": "Read live GitHub state before the next iteration; use dated handoff evidence for production until an authorized refresh. Keep private operational data outside this repository."
+}

@@ -2,6 +2,12 @@
 
 AG-UI.AI is an independent bilingual news, timeline and research publication focused on Generative UI. It retains the original technology atlas and conversational academy as a secondary learning experience. See the newsroom redesign section below for current operations.
 
+For dated release status, verification results and continuation constraints, read
+[the public project context](docs/PROJECT_CONTEXT.md) and
+[the engineering snapshot](docs/CURRENT_STATE.json). The October 13, 2026
+handoff records v12 as published with public email enabled; GitHub synchronization
+is tracked separately in [PR #3](https://github.com/AutoGenUI/ag-ui.ai/pull/3).
+
 > Independent community resource. This project is not affiliated with or endorsed by the maintainers of AG-UI, A2UI, OpenUI, json-render, MCP, CopilotKit, or other technologies it covers.
 
 ## Retained conversational academy
@@ -35,6 +41,9 @@ The local site opens at `http://localhost:3000`. Content is compiled before deve
 npm run content:validate
 npm run security:audit
 npm test
+npx tsc --noEmit
+npm run test:news
+node --import tsx --test tests/subscription-ui.test.mjs
 npm run lint
 npm run build
 npm run check:bundle
@@ -71,6 +80,13 @@ The home routes now serve independent Generative UI news. The academy is retaine
 
 ### Runtime configuration
 
+The instructions below describe setup and pre-activation acceptance, not the
+current production state. v12 has already completed public activation according
+to the dated handoff. Do not apply the pre-activation `false` examples to that
+deployment or repeat real-mail acceptance during a code/documentation sync.
+Local checks require disabled mail, no real keys and isolated local D1; CI starts
+and waits for its own local Worker before running HTTP tests.
+
 Set secrets only through Sites environment variables. `SITE_OWNER_EMAIL` authorizes the verified Sites owner identity; `ANALYTICS_SECRET` derives daily visitor estimates; `SUBSCRIPTION_SECRET` signs confirmation and management links. Never use a Sites viewer or bypass token as owner authorization.
 
 Email activation requires `BREVO_API_KEY`, `BREVO_SENDER_EMAIL`, `BREVO_WEBHOOK_SECRET`, `BREVO_DOMAIN_VERIFIED=true`, `EMAIL_ACCEPTANCE_PASSED=true` and `EMAIL_ENABLED=true`. Keep `EMAIL_ENABLED` and `EMAIL_ACCEPTANCE_PASSED` false until a real mailbox confirms, receives a digest, changes preferences and unsubscribes, and authenticated callbacks are verified. With the owner's acceptance and accurate public disclosure, anonymous Brevo open/click tracking may remain enabled; anonymizing tracking does not disable pixels or tracked links. The site does not use these statistics to decide whether to send mail or as proof that an email was read. Fully disabling tracking remains a future privacy improvement. Configure transactional webhooks with bearer authentication to `/api/brevo/webhook`; subscribe to delivered, hardBounce, softBounce, spam, invalid, blocked and unsubscribed. Official contracts: [secured webhooks](https://developers.brevo.com/docs/secured-webhooks), [transactional events](https://developers.brevo.com/docs/transactional-webhooks).
@@ -98,4 +114,4 @@ npm run dev -- --port 4173
 
 Run `npm run test:news` for database, editorial, queue and metrics tests. `npm run test:render` uses the running Worker at `SITE_TEST_BASE_URL` (default localhost:4173), including actual HTTP auth boundaries. Localhost, browser automation and signed-in owner traffic do not inflate counters. Production checks must use a browser automation user agent or disable telemetry with the existing automation detection.
 
-Collection schedules (08:00/20:00 Singapore) and weekly digest preparation (Monday 09:00) require a fresh cloud task to independently access the original sources, authenticated Site MCP and persisted readback **before enabling**. Merely deploying the endpoint does not prove unattended readiness.
+The October 13 handoff records existing collection schedules (08:00/20:00 Singapore) and weekly digest preparation (Monday 09:00). Preserve them rather than creating duplicates; this GitHub sync does not inspect or change task configuration. For a future new task, independently validate original-source access, authenticated Site MCP and persisted readback before enabling. A deployed endpoint alone does not prove unattended readiness or that each scheduled run succeeded.
