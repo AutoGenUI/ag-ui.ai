@@ -13,7 +13,7 @@
     "documentsAndCodeIntegrityVerified": true
   },
   "production": {
-    "evidence": "Verified handoff and user statement; not re-read in this synchronization",
+    "evidence": "Sites metadata and source refreshed on 2026-10-13; private environment values were not read",
     "url": "https://ag-ui.ai",
     "publishedVersion": 12,
     "deploymentStatusAtHandoff": "succeeded",
@@ -25,15 +25,16 @@
     "confirmedSubscriberCapacity": 250,
     "dailySubmissionLimitAtHandoff": 300,
     "weeklySubmissionBudgetAtHandoff": 250,
-    "existingSchedulesPreserved": true
+    "existingSchedulesPreserved": true,
+    "metadataObservedAt": "2026-10-13T10:10:32Z"
   },
   "github": {
-    "observedAt": "2026-10-13T09:18:00Z",
+    "observedAt": "2026-10-13T10:10:32Z",
     "repository": "AutoGenUI/ag-ui.ai",
     "defaultBranch": "main",
-    "mainAtObservation": "24edc498f5c135e283d773d946fcab3e99d239bd",
+    "mainAtObservation": "f670b23d32e6de1e4497f46113ef277fc3fc97cc",
     "syncBranch": null,
-    "pullRequest": "https://github.com/AutoGenUI/ag-ui.ai/pull/3",
+    "pullRequest": "https://github.com/AutoGenUI/ag-ui.ai/pull/4",
     "draftAtObservation": false,
     "mergedAtObservation": true,
     "codeAndCiVerificationCommit": "b0f0a40748474e3ce1f5918a7f9c4acff6f1a4f3",
@@ -44,11 +45,11 @@
     "requiredCheck": "verify",
     "branchProtectionPreserved": true,
     "historicalSyncBranch": "codex/ag-ui-ai-v12-sync",
-    "mergedAt": "2026-10-13T09:03:38Z",
-    "validatedPullRequestHead": "800cf6202bffc2ce2952b65bb813377f5398169b",
-    "validatedTree": "46d9bda9cead65231bb02bf7bded7792374a5b44",
+    "mergedAt": "2026-10-13T09:47:47Z",
+    "validatedPullRequestHead": "219dd12bbac3662662f942257c6c6b292f37f577",
+    "validatedTree": "e36d9422315db154c01f4f9eaa44ac0230506ded",
     "primaryMainBeforeSynchronization": "525ec78904ab7e2b97717adc7ac13bfd3f5f3db0",
-    "primaryMainAtObservation": "24edc498f5c135e283d773d946fcab3e99d239bd",
+    "primaryMainAtObservation": "f670b23d32e6de1e4497f46113ef277fc3fc97cc",
     "branchPolicy": "Keep only main after completed iterations; temporary PR branches allowed and cleaned after verified merge",
     "branchesAtLastCompletedCleanup": [
       "main"
@@ -260,7 +261,7 @@
   },
   "openEngineeringWork": [
     "Track 8 moderate dependencies without weakening the audit gate",
-    "Preserve bundle budgets; baseline raw JavaScript margin is 1169 bytes",
+    "Preserve bundle budgets; raw JavaScript remains close to the unchanged 920000-byte gate",
     "Verify complete Brevo tracking disablement and keep bilingual disclosures accurate",
     "Recheck restricted-network accessibility without promising global access",
     "Observe real queued cancellation and additional bounce scenarios only under authorized acceptance",
@@ -283,5 +284,48 @@
     "accountDnsInventoryAndDkimSelectorVerified": false,
     "managedD1BackupRestoreCapabilitiesVerified": false,
     "documentationCommit": "Query GitHub; this snapshot does not self-reference its own commit"
+  },
+  "releaseCandidate": {
+    "version": "1.0.0",
+    "phase": "local-verification-complete-awaiting-required-CI-and-publication",
+    "baseMain": "f670b23d32e6de1e4497f46113ef277fc3fc97cc",
+    "recordedAt": "2026-10-13T10:10:32Z",
+    "notes": "docs/releases/v1.0.0.md",
+    "formalReleaseEvidence": "Query the remote annotated v1.0.0 tag and GitHub Release; this dated candidate record does not assert deployment completion",
+    "tests": {
+      "base": 35,
+      "newsAndMail": 42,
+      "subscriptionUi": 10,
+      "localHttp": 8,
+      "total": 95
+    },
+    "browser": {
+      "viewports": [
+        "390x844",
+        "1440x900"
+      ],
+      "syntheticLocalFlows": [
+        "GET remains pending",
+        "language switch preserves signed confirmation and management links",
+        "active public confirmation 0 to 1",
+        "replayed confirmation does not allocate another place",
+        "test confirmation does not allocate a public place",
+        "expired confirmation shows error",
+        "preferences save",
+        "unsubscribe releases place",
+        "focus event refreshes previous tab aggregate"
+      ],
+      "focusTest": "Temporary CDP focus emulation; restored after verification",
+      "realMailSent": false,
+      "productionSubscriberDataRead": false
+    },
+    "userConfirmationReport": {
+      "date": "2026-10-13",
+      "evidence": "User reported a new inbox and active webpage confirmation with public count 1; no email or signed URL retained"
+    },
+    "schemaChanged": false,
+    "productionSecretsRead": false,
+    "productionConfigurationChanges": false,
+    "rolloutLimit": "New client requires subscriptionType; use matching client and Worker and refresh open pages after rollback"
   }
 }

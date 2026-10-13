@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { categories, categoryNames, type Category, type Locale } from "@/lib/news/types";
 import {
@@ -40,7 +40,6 @@ function SubscriptionView({ locale, initialLink, onManagementUrl }: {
     [capacity, setCapacity] = useState<SubscriptionCapacity | null>(null),
     [capacityState, setCapacityState] = useState<"loading" | "ready" | "error">("loading"),
     [readState, setReadState] = useState<"loading" | "ready" | "error">(initialLink?.action === "preferences" ? "loading" : "ready"),
-    [capacityRetry, setCapacityRetry] = useState(0),
     [readRetry, setReadRetry] = useState(0),
     [email, setEmail] = useState(""),
     [language, setLanguage] = useState<Locale>(locale),
@@ -52,22 +51,37 @@ function SubscriptionView({ locale, initialLink, onManagementUrl }: {
     [copyingFeed, setCopyingFeed] = useState<Locale | null>(null),
     [feedNotice, setFeedNotice] = useState<{ language: Locale; copied: boolean } | null>(null);
   const generation = useRef(0), readLink = useRef(initialLink),
+    capacityGeneration = useRef(0), capacityAbort = useRef<AbortController | null>(null),
     submitting = useRef(false), submissionAbort = useRef<AbortController | null>(null),
     noticeRef = useRef<HTMLElement | null>(null), formRef = useRef<HTMLFormElement | null>(null);
 
-  useEffect(() => {
+  const refreshCapacity = useCallback(() => {
+    const requestGeneration = ++capacityGeneration.current;
+    capacityAbort.current?.abort();
     const controller = new AbortController();
-    void fetch("/api/subscription/status", { signal: controller.signal })
+    capacityAbort.current = controller;
+    void fetch("/api/subscription/status", { cache: "no-store", signal: controller.signal })
       .then(async response => {
         const data = parseSubscriptionCapacity(await response.json());
         if (!response.ok || !data) throw new Error("Unavailable");
-        if (controller.signal.aborted) return;
+        if (controller.signal.aborted || requestGeneration !== capacityGeneration.current) return;
         setCapacity(data); setCapacityState("ready");
         setNotice(current => current?.kind === "capacity-full" && !data.full ? null : current);
       })
-      .catch(() => { if (!controller.signal.aborted) setCapacityState("error"); });
-    return () => controller.abort();
-  }, [capacityRetry]);
+      .catch(() => { if (!controller.signal.aborted && requestGeneration === capacityGeneration.current) setCapacityState("error"); });
+  }, []);
+  useEffect(() => {
+    refreshCapacity();
+    // Returning from confirmation on another device refreshes the public count.
+    const resume = () => { if (document.visibilityState === "visible") { setCapacityState("loading"); refreshCapacity(); } };
+    window.addEventListener("focus", resume);
+    document.addEventListener("visibilitychange", resume);
+    return () => {
+      capacityGeneration.current += 1; capacityAbort.current?.abort();
+      window.removeEventListener("focus", resume);
+      document.removeEventListener("visibilitychange", resume);
+    };
+  }, [refreshCapacity]);
 
   useEffect(() => {
     const next = readLink.current;
@@ -95,7 +109,6 @@ function SubscriptionView({ locale, initialLink, onManagementUrl }: {
   }, [attention]);
   useEffect(() => () => { generation.current += 1; submissionAbort.current?.abort(); }, []);
 
-  const refreshCapacity = () => { setCapacityState("loading"); setCapacityRetry(value => value + 1); };
   const retryRead = () => { setReadState("loading"); setNotice(null); setReadRetry(value => value + 1); };
   const copyFeed = async (feedLanguage: Locale) => {
     const requestGeneration = generation.current;
@@ -118,8 +131,9 @@ function SubscriptionView({ locale, initialLink, onManagementUrl }: {
     ((!manage || confirmationMode) && capacityState !== "ready") || (!manage && capacity?.full === true);
   const submit = async (requested?: SubscriptionAction) => {
     const action = requested || (manage ? confirmationMode ? "confirm" : "preferences" : "signup");
-    if (submitting.current || formLocked || terminal || action !== "unsubscribe" && !topics.length) return;
-    if (action !== "unsubscribe" && !formRef.current?.reportValidity()) return;
+    if (submitting.current || formLocked || terminal) return;
+    if (action === "confirm" && !confirmationMode) return;
+    if ((action === "signup" || action === "preferences") && (!topics.length || !formRef.current?.reportValidity())) return;
     if (action === "preferences" && subscriber?.status !== "confirmed") return;
     const requestGeneration = generation.current, link = manage;
     const controller = new AbortController();
@@ -128,12 +142,15 @@ function SubscriptionView({ locale, initialLink, onManagementUrl }: {
       const response = await fetch(link ? "/api/subscription/manage" : "/api/subscription", {
         method: "POST", headers: { "Content-Type": "application/json" }, signal: controller.signal,
         body: JSON.stringify(link
-          ? { ...link, action, locale: language, topics }
+          ? action === "confirm" ? { ...link, action } : { ...link, action, locale: language, topics }
           : { email, locale: language, topics, consent, website: "" }),
       });
       const result = subscriptionOutcome(action, response.status, await response.json());
       if (controller.signal.aborted || requestGeneration !== generation.current) return;
-      if (result.capacity) { setCapacity(result.capacity); setCapacityState("ready"); }
+      if (result.capacity) {
+        ++capacityGeneration.current; capacityAbort.current?.abort();
+        setCapacity(result.capacity); setCapacityState("ready");
+      }
       if (result.subscriber) {
         setSubscriber(result.subscriber); setLanguage(result.subscriber.locale); setTopics(result.subscriber.topics);
       }
@@ -148,7 +165,7 @@ function SubscriptionView({ locale, initialLink, onManagementUrl }: {
         setManage(next);
         history.replaceState(null, "", `${location.pathname}?${new URLSearchParams({ id: next.id, token: next.token })}`);
       }
-      if (result.kind === "confirmed" || result.kind === "unsubscribed") refreshCapacity();
+      if (result.kind === "confirmed" || result.kind === "unsubscribed") { setCapacityState("loading"); refreshCapacity(); }
       setAttention(value => value + 1);
     } catch {
       if (!controller.signal.aborted && requestGeneration === generation.current) {
@@ -177,28 +194,31 @@ function SubscriptionView({ locale, initialLink, onManagementUrl }: {
     : zh ? "提交订阅申请" : "submitting your request";
   const content = (current: Notice): [string, string, string] => {
     switch (current.kind) {
-      case "loading": return ["↻", current.action ? zh ? `正在${actionName(current.action)}…` : `We’re ${actionName(current.action)}…` : zh ? "正在读取订阅状态…" : "Loading your subscription…", zh ? "请稍候，当前操作完成前不会重复提交。" : "Please wait. Another request cannot be submitted while this one is in progress."];
-      case "confirm-ready": return ["✉", zh ? "请确认你的邮箱" : "Confirm your email", zh ? "点击下方“确认订阅”才会生效。打开本页不会自动确认；名额以确认成功为准。" : "Select “Confirm subscription” below to activate it. Opening this page does not confirm your email; a place is allocated only after successful confirmation."];
-      case "active": return ["✓", zh ? "订阅已生效" : "Your subscription is active", zh ? "可以修改语言与主题，也可随时退订所有邮件。" : "You can change your language and topics, or unsubscribe from all email at any time."];
-      case "check-inbox": return ["✉", zh ? "订阅申请已受理" : "Your subscription request was received", zh ? "如果该邮箱需要确认且当前允许投递，请留意收件箱与垃圾邮件，并通过邮件中的入口主动确认。此提示不能证明邮件已发出或订阅已生效。待确认不占名额，邮件可能受当日额度影响而延迟。" : "If this address needs confirmation and delivery is currently allowed, check your inbox and spam folder and actively confirm through the email. This message does not prove that an email was sent or a subscription is active. Pending requests do not occupy a place; the daily allowance may delay email."];
-      case "confirmed": return ["✓", zh ? "邮箱确认成功，订阅已生效" : "Email confirmed — your subscription is active", zh ? "现在可以设置语言与主题。每封周报都提供偏好与退订入口。" : "You can now set your language and topics. Every digest includes preference and unsubscribe links."];
-      case "preferences-saved": return ["✓", zh ? "订阅偏好已保存" : "Your preferences are saved", zh ? "下方显示服务器保存的语言与主题，后续周报按这些偏好筛选。" : "The language and topics shown below are the saved values. Future digests use these preferences."];
+      case "loading": return ["↻", current.action ? zh ? `正在${actionName(current.action)}…` : `We’re ${actionName(current.action)}…` : zh ? "正在读取订阅状态…" : "Loading your subscription…", zh ? "请稍候，不会重复提交。" : "Please wait; duplicate submission is blocked."];
+      case "confirm-ready": return ["✉", zh ? "最后一步：确认订阅" : "One last step: confirm your subscription", zh ? "请点击下方按钮确认。打开邮件链接不会自动生效；确认成功才占名额。" : "Select the button below. Opening the email link does not confirm your subscription; successful confirmation allocates a place."];
+      case "active":
+      case "confirmed":
+        if (subscriber?.subscriptionType === "test") return ["✓", zh ? "测试邮箱已确认" : "Test email confirmed", zh ? "仅供邮件验收，不占正式名额，也不接收正式周报。下方可管理测试偏好或退订。" : "For email testing only: no public place or public digest. You can manage test preferences or unsubscribe below."];
+        return current.kind === "active"
+          ? ["✓", zh ? "订阅已生效" : "Your subscription is active", zh ? "可以修改语言与主题，也可随时退订所有邮件。" : "You can change your language and topics, or unsubscribe from all email at any time."]
+          : ["✓", zh ? "邮箱确认成功，订阅已生效" : "Email confirmed — your subscription is active", zh ? "现在可以设置语言与主题。每封周报都提供偏好与退订入口。" : "You can now set your language and topics. Every digest includes preference and unsubscribe links."];
+      case "check-inbox": return ["✉", zh ? "下一步：打开邮件，再确认订阅" : "Next: open the email, then confirm on the page", zh ? "请查看收件箱与垃圾邮件：① 打开邮件链接；② 在页面点击“确认订阅”。成功提示才表示生效。此提示不证明发信，待确认不占名额，当日额度可能延迟邮件。" : "Check your inbox/spam: 1. Open the email link. 2. Select “Confirm subscription” on the page. Only its success message confirms activation. This notice does not prove email was sent. Pending requests do not reserve a place; the daily allowance may delay delivery."];
+      case "preferences-saved": return ["✓", zh ? "订阅偏好已保存" : "Your preferences are saved", zh ? "服务器已保存下方语言与主题。" : "The language and topics below are saved on the server."];
       case "unsubscribed": return ["✓", zh ? "已退订，后续邮件已停止" : "You are unsubscribed — future email is stopped", zh ? "此邮箱已停止后续确认邮件与周报投递。偏好编辑与重复退订已关闭；仍可使用 RSS 阅读新闻。" : "Future confirmation and digest sends to this address are stopped. Preference editing and repeated unsubscribe actions are closed. You can continue reading through RSS."];
       case "suppressed": return ["⊘", zh ? "此邮箱已停止投递" : "Email delivery to this address is stopped", zh ? "此订阅当前已被停止投递，不能保存偏好或重新发信。可继续使用 RSS 阅读新闻。" : "This subscription is stopped. Preferences cannot be saved and email cannot be restarted here. You can continue reading through RSS."];
       case "unconfirmed": return ["✉", zh ? "邮箱尚未确认，偏好暂不能保存" : "Confirm your email before saving preferences", zh ? "请使用确认邮件中的入口完成确认。如果链接已过期，可以重新申请确认邮件。" : "Use the link in your confirmation email to confirm. If the link has expired, you can request a fresh confirmation."];
-      case "capacity-full": return ["!", zh ? "当前订阅名额已满" : "All subscription places are currently taken", zh ? "本站当前容量为 250 位已确认订阅者。此次没有完成新的订阅确认；待确认不保留名额。可刷新名额后再试，或先使用 RSS。" : "The site currently allows 250 confirmed subscribers. No new subscription was confirmed by this request; pending requests do not reserve a place. Refresh availability and try again, or use RSS."];
+      case "capacity-full": return ["!", zh ? "当前订阅名额已满" : "All subscription places are currently taken", zh ? "250 个正式名额已满，本次未确认。待确认不占位；刷新名额后重试，或使用 RSS。" : "All 250 public places are taken. This request was not confirmed; pending requests reserve no place. Refresh availability and retry, or use RSS."];
       case "unavailable": return ["i", zh ? "邮件订阅暂未开放" : "Email subscriptions are currently unavailable", zh ? "当前不接受新的公众订阅。RSS 仍开放，可以直接阅读全部新闻。" : "New public subscriptions are not being accepted. RSS remains available with the complete news feed."];
-      case "capacity-error": return ["!", zh ? "暂时无法读取订阅名额" : "Availability could not be loaded", zh ? "当前人数尚未确认，不会显示为零。请重试读取；也可先使用 RSS。" : "The current count is unknown; it is not zero. Retry loading availability, or use RSS for now."];
-      case "read-error": return ["!", zh ? "未能读取你的订阅状态" : "Your subscription could not be loaded", zh ? "此次读取没有执行保存或退订。请重试读取；若链接无效或过期，请从邮件重新打开，或申请新的确认邮件。" : "This read request did not save preferences or unsubscribe. Retry loading the subscription. If the link is invalid or expired, reopen it from your email or request a fresh confirmation."];
-      default: return ["!", zh ? `未能确认${actionName(current.action)}的结果` : "The result could not be verified", zh ? "没有获得成功确认。请检查下方信息后重试；已有管理链接也可重新读取当前状态。若邮件链接无效或过期，请重新打开邮件或申请新的确认邮件。" : "Success was not confirmed. Check the fields below and try again; an existing management link can also reload the current state. If the email link is invalid or expired, reopen the email or request a fresh confirmation."];
+      case "capacity-error": return ["!", zh ? "暂时无法读取订阅名额" : "Availability could not be loaded", zh ? "人数未知，不等于零。请刷新名额，或使用 RSS。" : "The count is unknown, not zero. Refresh availability or use RSS."];
+      case "read-error": return ["!", zh ? "未能读取你的订阅状态" : "Your subscription could not be loaded", zh ? "未执行保存或退订。请重试读取；链接无效或过期时，重新打开邮件或申请确认。" : "Nothing was saved or unsubscribed. Retry loading; for an invalid or expired link, reopen the email or request a fresh confirmation."];
+      default: return ["!", zh ? "未能核验操作结果" : "The result could not be verified", zh ? "未确认成功，请重试或重新读取管理状态。链接无效或过期时，重新打开邮件或申请确认。" : "Success was not verified. Retry or reload your management link. For an invalid or expired link, reopen the email or request a fresh confirmation."];
     }
   };
-  const showForm = !terminal && readState === "ready" && (manage
-    ? confirmationMode ? capacityState === "ready" : subscriber?.status === "confirmed" && notice?.kind !== "unconfirmed"
+  const showForm = !terminal && !confirmationMode && readState === "ready" && (manage
+    ? subscriber?.status === "confirmed" && notice?.kind !== "unconfirmed"
     : capacityState === "ready" && capacity?.enabled === true && !capacity.full && !["check-inbox", "unavailable"].includes(notice?.kind || ""));
-  const currentAction: SubscriptionAction = manage ? confirmationMode ? "confirm" : "preferences" : "signup";
+  const currentAction: SubscriptionAction = manage ? "preferences" : "signup";
   const buttonText = busy ? zh ? `正在${actionName(busy)}…` : `We’re ${actionName(busy)}…`
-    : confirmationMode ? zh ? "确认订阅" : "Confirm subscription"
     : manage ? zh ? "保存偏好" : "Save preferences" : zh ? "发送确认邮件" : "Send confirmation";
 
   return (
@@ -209,23 +229,12 @@ function SubscriptionView({ locale, initialLink, onManagementUrl }: {
           <h2>{manage ? zh ? "你的邮件订阅" : "Your email subscription" : zh ? "每周精选，送达邮箱。" : "A weekly perspective, by email."}</h2>
           <p>{zh ? "选择语言与主题，精选事件、研究与值得关注的方向。只发送有实质更新的周报。" : "Choose a language and topics for a considered selection of events, research and emerging directions. No empty editions."}</p>
         </header>
-        <section className="n-subscription-capacity" aria-label={zh ? "订阅名额" : "Subscription availability"} aria-busy={capacityState === "loading"}>
-          {capacity ? <>
-            <div className="n-subscription-capacity-head">
-              <div><span className="n-subscription-capacity-label">{zh ? "已确认订阅 / 当前容量" : "Confirmed / capacity"}</span><strong>{capacity.confirmedCount}<span> / {capacity.capacity}</span></strong><span className="n-subscription-capacity-label">{zh ? "位订阅者 · 本站设置" : "subscribers · site limit"}</span></div>
-              <span className={`n-subscription-remaining${capacity.full ? " is-full" : ""}`}>{capacity.full ? zh ? "名额已满" : "Capacity reached" : zh ? `剩余 ${capacity.remaining} 个名额` : `${capacity.remaining} places remaining`}</span>
-            </div>
-            <progress max={capacity.capacity} value={Math.min(capacity.confirmedCount, capacity.capacity)} aria-label={zh ? "已确认订阅人数" : "Confirmed subscribers"} />
-            <p>{zh ? `名额以邮箱确认成功为准，待确认不占名额。免费发信上限 ${capacity.dailyLimit} 封/天，周报发送预算 ${capacity.weeklyLimit} 封/天；当日额度也用于确认邮件，不能保证同日送达。` : `Places are allocated only after email confirmation; pending requests do not occupy places. The free allowance is ${capacity.dailyLimit} emails/day, with a ${capacity.weeklyLimit}/day digest budget. Confirmations share the daily allowance; delivery on the same day is not guaranteed.`}</p>
-          </> : <p>{capacityState === "loading" ? zh ? "正在读取已确认人数与剩余名额…" : "Loading confirmed subscribers and remaining places…" : zh ? "订阅人数暂时未知，请重试读取。" : "Subscriber counts are temporarily unknown. Please retry."}</p>}
-          {capacityState === "error" && <p className="n-subscription-inline-error" role="status">{zh ? "名额信息未能更新；已有数字是上次读取结果。已生效订阅仍可退订或管理。" : "Availability could not be updated; any figures shown are the last loaded values. Active subscriptions can still be managed or unsubscribed."}</p>}
-          <button type="button" className="n-subscription-secondary" disabled={busy !== null || capacityState === "loading"} onClick={refreshCapacity}>{capacityState === "loading" ? zh ? "正在刷新…" : "Refreshing…" : zh ? "刷新名额" : "Refresh availability"}</button>
-        </section>
         {display && (() => {
           const [icon, title, body] = content(display);
           return <section className={`n-subscription-notice n-subscription-${display.kind}`} ref={noticeRef} tabIndex={-1} role={errorCard ? "alert" : "status"} aria-live={errorCard ? "assertive" : "polite"} aria-atomic="true">
             <span className="n-subscription-icon" aria-hidden="true">{icon}</span>
             <div><h3>{title}</h3><p>{body}</p>
+              {confirmationMode && !terminal && <div className="n-subscription-actions"><button type="button" className="n-button" disabled={formLocked} onClick={() => void submit("confirm")}>{busy === "confirm" ? zh ? "正在确认…" : "Confirming…" : zh ? "确认订阅" : "Confirm subscription"}<span aria-hidden="true">→</span></button></div>}
               {(display.kind === "read-error" || display.kind === "error" && manage && !confirmationMode) && <button type="button" className="n-subscription-secondary" onClick={retryRead}>{zh ? "重试读取订阅" : "Retry loading subscription"}</button>}
               {display.kind === "unconfirmed" || display.kind === "read-error" || display.kind === "error" && manage ? <a className="n-subscription-link" href={`/${locale}/subscribe`}>{zh ? "重新申请确认邮件" : "Request a fresh confirmation"}</a> : null}
               {display.kind === "check-inbox" && <button type="button" className="n-subscription-secondary" onClick={() => { setNotice(null); setConsent(false); }}>{zh ? "返回填写订阅信息" : "Return to subscription details"}</button>}
@@ -233,10 +242,22 @@ function SubscriptionView({ locale, initialLink, onManagementUrl }: {
             </div>
           </section>;
         })()}
+        <section className="n-subscription-capacity" aria-label={zh ? "订阅名额" : "Subscription availability"} aria-busy={capacityState === "loading"}>
+          {capacity ? <>
+            <div className="n-subscription-capacity-head">
+              <div><span className="n-subscription-capacity-label">{zh ? "已确认订阅 / 当前容量" : "Confirmed / capacity"}</span><strong>{capacity.confirmedCount}<span> / {capacity.capacity}</span></strong><span className="n-subscription-capacity-label">{zh ? "位订阅者 · 本站设置" : "subscribers · site limit"}</span></div>
+              <span className={`n-subscription-remaining${capacity.full ? " is-full" : ""}`}>{capacity.full ? zh ? "名额已满" : "Capacity reached" : zh ? `剩余 ${capacity.remaining} 个名额` : `${capacity.remaining} places remaining`}</span>
+            </div>
+            <progress max={capacity.capacity} value={Math.min(capacity.confirmedCount, capacity.capacity)} aria-label={zh ? "已确认订阅人数" : "Confirmed subscribers"} />
+            <p>{zh ? `仅确认成功占名额。免费限额 ${capacity.dailyLimit} 封/天，周报预算 ${capacity.weeklyLimit} 封/天；确认邮件共用额度，投递可能延迟。` : `Only confirmed subscriptions occupy places. Daily allowance: ${capacity.dailyLimit} emails, including confirmations; digest budget: ${capacity.weeklyLimit}/day. Delivery may be delayed.`}</p>
+          </> : <p>{capacityState === "loading" ? zh ? "正在读取已确认人数与剩余名额…" : "Loading confirmed subscribers and remaining places…" : zh ? "订阅人数暂时未知，请重试读取。" : "Subscriber counts are temporarily unknown. Please retry."}</p>}
+          {capacityState === "error" && <p className="n-subscription-inline-error" role="status">{zh ? "名额未能更新，数字为上次结果；仍可管理已生效订阅。" : "Availability failed to refresh; figures are from the last check. Active subscriptions remain manageable."}</p>}
+          <button type="button" className="n-subscription-secondary" disabled={busy !== null || capacityState === "loading"} onClick={() => { setCapacityState("loading"); refreshCapacity(); }}>{capacityState === "loading" ? zh ? "正在刷新…" : "Refreshing…" : zh ? "刷新名额" : "Refresh availability"}</button>
+        </section>
         {showForm && <form className="n-subscription-form" ref={formRef} aria-busy={busy !== null} onSubmit={event => { event.preventDefault(); void submit(currentAction); }}>
           <fieldset className="n-subscription-fields" disabled={formLocked}>
             <legend className="n-subscription-sr-only">{zh ? "订阅信息" : "Subscription details"}</legend>
-            <div className="n-subscription-group-head"><h3>{confirmationMode ? zh ? "确认周报订阅" : "Confirm your digest subscription" : manage ? zh ? "调整阅读偏好" : "Your reading preferences" : zh ? "设置你的周报" : "Make the digest yours"}</h3><p>{zh ? "只留下你关心的内容。" : "Keep the subjects that matter to you."}</p></div>
+            <div className="n-subscription-group-head"><h3>{manage ? zh ? "调整阅读偏好" : "Your reading preferences" : zh ? "设置你的周报" : "Make the digest yours"}</h3><p>{zh ? "只留下你关心的内容。" : "Keep the subjects that matter to you."}</p></div>
             <div className={`n-subscription-delivery${manage ? " is-manage" : ""}`}>
               {!manage && <label><span>{zh ? "接收邮箱" : "Email address"}</span><input type="email" required autoComplete="email" placeholder="you@example.com" value={email} onChange={event => setEmail(event.target.value)} /></label>}
               <label><span>{zh ? "周报语言" : "Digest language"}</span><select value={language} onChange={event => setLanguage(event.target.value as Locale)}><option value="zh">中文</option><option value="en">English</option></select></label>
@@ -244,7 +265,7 @@ function SubscriptionView({ locale, initialLink, onManagementUrl }: {
             <fieldset className="n-subscription-topics"><legend>{zh ? "关注主题" : "Your topics"}</legend><p className="n-subscription-topic-help">{zh ? "至少选择一项，可随时调整。" : "Choose at least one. You can update this anytime."}</p><div className="n-subscription-topic-grid">{categories.map(category => <label className={topics.includes(category) ? "is-selected" : ""} key={category}><input type="checkbox" checked={topics.includes(category)} onChange={event => setTopics(current => event.target.checked ? [...current, category] : current.filter(value => value !== category))} /><span>{categoryNames[category][locale]}</span></label>)}</div></fieldset>
             {!manage && <label className="n-subscription-consent"><input type="checkbox" required checked={consent} onChange={event => setConsent(event.target.checked)} />{zh ? "我同意接收所选主题的周报，可随时退订。" : "I agree to receive the weekly digest for these topics and can unsubscribe anytime."}</label>}
             <div className="n-subscription-actions"><button className="n-button" disabled={formLocked || !topics.length}>{buttonText}<span aria-hidden="true">→</span></button><span className="n-subscription-action-hint">{zh ? "无需注册账号" : "No account required"}</span></div>
-            {manage && !confirmationMode && subscriber?.status === "confirmed" && <section className="n-subscription-unsubscribe-area" aria-label={zh ? "结束邮件订阅" : "Stop email updates"}><div><h3>{zh ? "不再接收邮件？" : "Prefer fewer emails?"}</h3><p>{zh ? "退订将停止此邮箱的后续邮件，RSS 仍可继续使用。" : "Unsubscribing stops future email to this address. RSS remains available."}</p></div><button type="button" className="n-subscription-secondary n-subscription-unsubscribe-button" disabled={formLocked} onClick={() => void submit("unsubscribe")}>{busy === "unsubscribe" ? zh ? "正在退订…" : "Unsubscribing…" : zh ? "退订所有邮件" : "Unsubscribe from all email"}</button></section>}
+            {manage && subscriber?.status === "confirmed" && <section className="n-subscription-unsubscribe-area" aria-label={zh ? "结束邮件订阅" : "Stop email updates"}><div><h3>{zh ? "不再接收邮件？" : "Prefer fewer emails?"}</h3><p>{zh ? "退订将停止此邮箱的后续邮件，RSS 仍可继续使用。" : "Unsubscribing stops future email to this address. RSS remains available."}</p></div><button type="button" className="n-subscription-secondary n-subscription-unsubscribe-button" disabled={formLocked} onClick={() => void submit("unsubscribe")}>{busy === "unsubscribe" ? zh ? "正在退订…" : "Unsubscribing…" : zh ? "退订所有邮件" : "Unsubscribe from all email"}</button></section>}
           </fieldset>
         </form>}
         <p className="n-small n-subscription-disclosure">{zh ? "邮件由 Brevo 投递。当前匿名打开与点击统计不关联具体联系人，但仍可能包含像素与链接跟踪；本站不依据这些统计决定发信或判断已读。" : "Email is delivered by Brevo. Anonymous open and click statistics are not associated with individual contacts, but tracking pixels and tracked links may remain. We do not use these statistics to decide whether to send email or as proof that an email was read."}</p>
@@ -253,7 +274,7 @@ function SubscriptionView({ locale, initialLink, onManagementUrl }: {
         <section className="n-rss-box">
           <div className="n-rss-heading"><span className="n-kicker">OPEN FEEDS</span><img src="/brand/rss-feed.svg" width="38" height="38" alt="" aria-hidden="true" /></div>
           <h2>{zh ? "阅读，不止一种方式。" : "Read on your terms."}</h2>
-          <p>{zh ? "全部已发布新闻，直接进入你的 RSS 阅读器。无需邮箱，也不占订阅名额。" : "All published stories, directly in your RSS reader. No email address or subscription place needed."}</p>
+          <p>{zh ? "全部已发布新闻，直接进入 RSS 阅读器。无需邮箱，不占名额。" : "All published stories in your RSS reader. No email or subscription place needed."}</p>
           <div className="n-rss-feeds">{(["zh", "en"] as const).map(feedLanguage => {
             const feedUrl = `https://ag-ui.ai/${feedLanguage}/feed.xml`;
             const feedName = feedLanguage === "zh" ? "中文 RSS" : "English RSS";

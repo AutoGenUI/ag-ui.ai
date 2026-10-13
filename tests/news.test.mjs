@@ -59,6 +59,65 @@ test('public capacity aggregates confirmed production subscribers only without p
   const dashboard=await operate(db,'dashboard',{},active);
   for(const key of Object.keys(summary)) assert.equal(dashboard.email[key],summary[key]);
 });
+test('public confirmation from the generated two-step email claims one place and reports its subscription type',async()=>{
+  for(const locale of ['zh','en']) {
+    const db=database();
+    await mockedMail(async sent=>{
+      const signup=await subscribe(db,publicInput(`fixture-two-step-${locale}@example.test`,{locale}),active,`fixture-two-step-${locale}`);
+      assert.equal(signup.status,'check-inbox');assert.equal(sent.length,1);
+      const mail=sent[0],link=confirmationLink(mail);
+      const expectedCopy=locale==='zh'
+        ? [/第一步/,/第二步/,/打开确认页（24 小时内有效）/,/点击“确认订阅”/,/仅点击邮件链接或打开页面不会确认订阅/,/无需在同一设备操作/]
+        : [/Step 1:/,/Step 2:/,/Open the confirmation page \(valid for 24 hours\)/,/Select “Confirm subscription”/,/opening the page does not confirm your subscription/,/another device/];
+      for(const copy of expectedCopy) {
+        assert.match(decodeHtml(mail.htmlContent),copy);assert.match(mail.textContent,copy);
+      }
+      assert.ok(mail.textContent.split('\n').includes(link.href));
+      const pending=await db.prepare('SELECT status,is_test FROM subscribers').first();
+      assert.equal(pending.status,'pending');assert.equal(pending.is_test,0);
+      assert.equal((await mailCapacity(db,active)).confirmedCount,0);
+      const input={id:link.searchParams.get('id'),token:link.searchParams.get('token'),action:'confirm'};
+      const confirmed=await manageSubscription(db,input,active);
+      assert.equal(confirmed.status,'confirmed');assert.equal(confirmed.subscriptionType,'public');
+      assert.doesNotMatch(JSON.stringify(confirmed),/email|is_test|@example\.test/);
+      const capacity=await mailCapacity(db,active);
+      assert.equal(capacity.confirmedCount,1);assert.equal(capacity.remaining,249);
+      assert.equal((await manageSubscription(db,input,active)).subscriptionType,'public');
+      assert.equal((await mailCapacity(db,active)).confirmedCount,1);
+      const read=await manageSubscription(db,{id:input.id,token:confirmed.token,action:'read'},active);
+      assert.equal(read.status,'confirmed');assert.equal(read.subscriptionType,'public');assert.equal(read.locale,locale);
+      const unsubscribed=await manageSubscription(db,{id:input.id,token:confirmed.token,action:'unsubscribe'},active);
+      assert.equal(unsubscribed.subscriptionType,'public');assert.equal(unsubscribed.status,'unsubscribed');
+      assert.equal((await mailCapacity(db,active)).remaining,250);
+      assert.equal(sent.length,1);
+    });
+  }
+});
+test('signed test confirmation and management report test identity without enrolling it publicly',async(t)=>{
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-10-13T01:00:00.000Z')});
+  const db=database();await seedDatabase(db);
+  await mockedMail(async sent=>{
+    await mailTest(db,{action:'confirmation',runId:'fixture-type-isolation',locale:'zh',topics:['product']},acceptance);
+    assert.equal(sent.length,1);
+    const link=confirmationLink(sent[0]),id=link.searchParams.get('id');
+    const confirmed=await manageSubscription(db,{id,token:link.searchParams.get('token'),action:'confirm'},active);
+    assert.equal(confirmed.status,'confirmed');assert.equal(confirmed.subscriptionType,'test');
+    assert.doesNotMatch(JSON.stringify(confirmed),/email|is_test|@example\.test/);
+    const capacity=await mailCapacity(db,active);
+    assert.equal(capacity.confirmedCount,0);assert.equal(capacity.remaining,250);
+    const read=await manageSubscription(db,{id,token:confirmed.token,action:'read'},active);
+    assert.equal(read.subscriptionType,'test');
+    const saved=await manageSubscription(db,{id,token:confirmed.token,action:'preferences',locale:'en',topics:['research']},active);
+    assert.equal(saved.subscriptionType,'test');assert.equal(saved.locale,'en');
+    assert.equal((await queueDigest(db,'2026-10-12')).queued,0);
+    await subscribe(db,publicInput(acceptance.testRecipient),active,'fixture-type-public-retry');
+    assert.equal(sent.length,1);
+    assert.equal((await db.prepare('SELECT is_test FROM subscribers WHERE id=?').bind(id).first()).is_test,1);
+    const optedOut=await manageSubscription(db,{id,token:confirmed.token,action:'unsubscribe'},active);
+    assert.equal(optedOut.subscriptionType,'test');assert.equal(optedOut.status,'unsubscribed');
+    assert.equal((await mailCapacity(db,active)).remaining,250);
+  });
+});
 test('full public signup collects nothing and the transactional insert closes a concurrent capacity race',async()=>{
   for(const fillDuringBatch of [false,true]) {
     const db=database();await capacityFixture(db,fillDuringBatch?249:250);
