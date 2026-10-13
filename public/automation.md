@@ -3,10 +3,14 @@
 This file is an operation reference, not authorization. Only the Site owner's authenticated MCP connection can write. Never pass credentials in task prompts or source. Site readers cannot publish, send mail or read subscriber records.
 
 The October 13, 2026 verified v12 handoff and subsequent formal v1.0.0 release
-record public email and existing collection/weekly schedules enabled. A newer
-subscription-polish candidate changes the browser and email presentation;
-its local checks are not evidence of another Sites deployment. Keep the
+record public email and existing collection/weekly schedules enabled. The
+subscription-polish iteration has since deployed as Sites numeric version 14;
+its form-before-feedback layout is historical. A newer normal-subscription
+candidate moves capacity above unified feedback and action forms and adds an
+explicit owner-only test-role release. Candidate checks are not evidence of
+that deployment or a real recipient release. Keep the
 immutable v1.0.0 tag and refresh dated release evidence before maintenance.
+Do not create v1.0.1 without the user's acceptance authorization.
 Activation paragraphs below
 apply to a new or rebuilt setup; they do not instruct an ordinary iteration to
 disable/re-enable mail, duplicate schedules or repeat real-mail acceptance.
@@ -59,7 +63,7 @@ The local cap is 300 submissions/day with 50 reserved for confirmation (weekly s
 
 The site also caps confirmed public subscribers at 250 to match the weekly budget. This is a site policy, not Brevo's contact-list limit; pending and test recipients do not count. Aggregate capacity is public at `/api/subscription/status`. Full capacity blocks new collection and confirmation with HTTP 409 `capacity-full`; an unexpired pending link may be retried after a place is released. Reading, confirmed subscribers' preferences and unsubscribe remain available. Test acceptance stays isolated. Never raise capacity or quota, enroll a test recipient publicly, or buy an upgrade from an unattended task.
 
-The candidate confirmation page automatically makes a same-origin POST only for a signed confirm action, when ready, visible and not prerendering. It attempts automatically at most once per mount; a language remount can retry idempotently. GET, HEAD, SSR and HTTP preloads do not confirm. A bot that executes JavaScript and imitates a visible browser may still confirm; visibility is not proof of a human. Cancellation and unsubscribe always require an explicit reader POST. A management link or `#unsubscribe` only opens/locates the management view. Editorial tasks must never visit signed confirmation URLs, impersonate readers or auto-confirm/cancel subscriptions.
+The confirmation page automatically makes a same-origin POST only for a signed confirm action, when ready, visible and not prerendering. It attempts automatically at most once per mount; a language remount can retry idempotently. GET, HEAD, SSR and HTTP preloads do not confirm. A bot that executes JavaScript and imitates a visible browser may still confirm; visibility is not proof of a human. Cancellation and unsubscribe always require an explicit reader POST. A management link or `#unsubscribe` only opens/locates the management view. Editorial tasks must never visit signed confirmation URLs, impersonate readers or auto-confirm/cancel subscriptions.
 
 A public unsubscribed recipient may start a new cycle only through fresh valid consent on the public form. Monotonic creation epoch/confirmation expiry, historical delivery timestamps and atomic winner guards invalidate old links and prevent stale producers, claims, management requests and related old opt-out callbacks from undoing new consent. Suppressed recipients, test identities, historical hard failures and sending/uncertain submissions cannot be revived through public signup. Current or uncorrelated opt-outs still stop mail, and complaints/hard failures suppress across generations. Preserve the original email limit of 2 per fixed 24-hour window, client limit of 5 per fixed one-hour window, 300/250 submission limits and capacity 250. No direct resets or new allowance purchases are authorized by these flows.
 
@@ -68,6 +72,8 @@ Confirmation and weekly messages share presentation-table/inline-CSS templates: 
 Fully disabling Brevo transactional tracking remains a future privacy improvement. Owner-authorized mail acceptance may proceed when the owner accepts tracking and the subscription and privacy pages accurately disclose it. Keep public email subscriptions disabled and do not collect public subscribers’ addresses until domain and sender authentication, secure configuration, and real acceptance all pass: confirmation delivery and the user's confirmation, weekly delivery, saved preferences, unsubscribe stopping further mail, and authenticated delivery callbacks. API acceptance and open/click statistics cannot substitute for these checks. Use `mail-test` only for explicitly authorized owner acceptance to the server-configured test recipient; never call it from scheduled editorial tasks.
 
 An explicitly authorized repeat acceptance run uses `mail-test` action `restart` with a new stable `runId`. Restart is a state-only operation: it sends no mail, requires public email disabled and the configured unsubscribed test recipient, refuses suppressed/production recipients and sending/uncertain submissions, preserves history, and invalidates old links. Confirmation and weekly must then use the active restart run ID. Replaying an already recorded restart never reopens a later opt-out. Scheduled editorial tasks must never call restart or any other mail-test action, and must never reset subscriber records directly.
+
+The newer owner-only candidate also supports explicitly authorized `mail-test` action `release` with `expectedRecipient`. This is an exact normalized match against `EMAIL_TEST_RECIPIENT`, not a selectable sending target. It sends no mail, calls no provider/drain, changes no quota or production gates and needs no mail-transport credentials. An existing test identity becomes ordinary public-role **unsubscribed**, with signed-link clocks rotated, queued mail cancelled and original test history preserved. It does not confirm or enroll the recipient: the reader must submit fresh consent through the ordinary form and confirm a new mailbox link before any public capacity or digest inclusion. Existing public identities are idempotent and cannot be converted back to test recipients; future test sends/restarts must refuse them. Missing identities are not created. Suppression, historical hard failures and sending/uncertain submissions block release. Preserve old-producer/claim/related-webhook guards and cross-generation suppression. This candidate's real release and deployment must be recorded separately; neither this document nor a scheduled editorial run authorizes invoking release or any other mail-test action.
 
 ## Finish and failure handling
 

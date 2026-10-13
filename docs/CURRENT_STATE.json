@@ -647,5 +647,71 @@
     ],
     "productionBrowser": "Agent in-app browser rejected both custom and platform domain navigation; no production DOM acceptance claimed. Synthetic local browser acceptance passed.",
     "immutableReleaseTagVerified": true
+  },
+  "normalSubscriptionIteration": {
+    "recordedOn": "2026-10-13",
+    "phase": "local-verification-complete-awaiting-required-CI-and-Sites",
+    "baseMain": "e3df53558f72534a7c6f43909b689b30e8ffb27b",
+    "notes": "docs/iterations/2026-10-13-normal-subscription.md",
+    "requestedBehavior": [
+      "Capacity card before status and interaction cards",
+      "All status/feedback before editable form and explicit cancellation/unsubscribe",
+      "Owner-authorized release of configured historical test identity to allow ordinary opt-in"
+    ],
+    "productionOperationScope": "Only configured recipient matching explicit owner expectedRecipient; no send, no automatic confirmation, no quota reset, retain test history",
+    "releaseGate": {
+      "plannedTag": "v1.0.1",
+      "tagCreated": false,
+      "requiresUserAcceptance": true
+    },
+    "schemaChanged": false,
+    "secretsRead": false,
+    "realMailSent": false,
+    "validation": {
+      "tests": {
+        "base": 35,
+        "newsAndMail": 61,
+        "subscriptionUi": 11,
+        "localHttp": 8,
+        "total": 115
+      },
+      "typescript": "passed",
+      "contentDocuments": 24,
+      "lintErrors": 0,
+      "lintWarnings": 2,
+      "audit": {
+        "moderate": 8,
+        "high": 0,
+        "critical": 0
+      },
+      "build": "passed",
+      "bundle": {
+        "javascriptBytes": 919522,
+        "javascriptGzipBytes": 267400,
+        "cssBytes": 116185,
+        "cssGzipBytes": 23035
+      },
+      "browser": {
+        "syntheticLocal": true,
+        "signupUiOnlyMock": true,
+        "viewports": [
+          "1440x900",
+          "390x844"
+        ],
+        "flows": [
+          "Visible automatic confirmation",
+          "Bilingual signed management links",
+          "Saved preferences feedback before form",
+          "Explicit unsubscribe and pending cancellation",
+          "Capacity before feedback and interactions",
+          "Retained signup form below check-inbox feedback; no return CTA"
+        ],
+        "consoleErrors": 0
+      },
+      "testStability": "61-case suite passed 20 bounded runs after forced reverse-winner preference regression fix; first truncated 60/61 cause remains unconfirmed",
+      "httpStartupLimit": "Local ProxyWorker had one connection-lost 500 immediately after restart; direct owner-rejection 403 and subsequent ready 8/8 passed; no production inference"
+    },
+    "ownerStatusRead": "Authenticated sanitized status only; configured test role was unsubscribed, four historical deliveries delivered, no raw subscriber rows, email, signatures or secrets read",
+    "productionRoleRelease": "pending-deployment"
   }
 }

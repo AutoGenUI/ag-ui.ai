@@ -122,10 +122,11 @@ export async function subscribe(
     // generation can be replaced; sending/uncertain always requires review.
     db.prepare("INSERT OR IGNORE INTO deliveries(id,subscriber_id,kind,status,created_at,updated_at) SELECT ?,s.id,'confirmation','queued',?,? FROM subscribers s WHERE s.email=? AND s.is_test=0 AND s.status='pending' AND (SELECT count(*) FROM subscribers WHERE is_test=0 AND status='confirmed')<? AND NOT EXISTS (SELECT 1 FROM deliveries d WHERE d.subscriber_id=s.id AND d.is_test=0 AND d.kind='confirmation' AND (d.status IN ('sending','uncertain') OR s.token_expires>?))")
       .bind(candidate, now, now, email, PUBLIC_SUBSCRIBER_CAPACITY, now),
-    // Only the request that inserted a confirmation may change preferences or
-    // start a new expiry; a valid expiry (and its HMAC) stays unchanged.
-    db.prepare("UPDATE subscribers SET locale=?,topics=?,token_expires=CASE WHEN token_expires>? THEN token_expires ELSE ? END WHERE email=? AND is_test=0 AND status='pending' AND EXISTS (SELECT 1 FROM deliveries d WHERE d.id=? AND d.subscriber_id=subscribers.id AND d.is_test=0 AND d.status='queued')")
-      .bind(input.locale, JSON.stringify(input.topics), now, expires, email, candidate),
+    // A live generation keeps its preferences as well as its HMAC, including
+    // legacy rows without delivery history. Only an expired winner replaces
+    // them; a fresh subscriber already carries the insert winner's choices.
+    db.prepare("UPDATE subscribers SET locale=CASE WHEN token_expires>? THEN locale ELSE ? END,topics=CASE WHEN token_expires>? THEN topics ELSE ? END,token_expires=CASE WHEN token_expires>? THEN token_expires ELSE ? END WHERE email=? AND is_test=0 AND status='pending' AND EXISTS (SELECT 1 FROM deliveries d WHERE d.id=? AND d.subscriber_id=subscribers.id AND d.is_test=0 AND d.status='queued')")
+      .bind(now, input.locale, now, JSON.stringify(input.topics), now, expires, email, candidate),
     // Cancel old queued generations before another worker can claim a stale
     // expiry snapshot. A worker that already claimed sending blocks rotation.
     db.prepare("UPDATE deliveries SET status='cancelled',updated_at=? WHERE is_test=0 AND kind='confirmation' AND status='queued' AND id<>? AND subscriber_id IN (SELECT s.id FROM subscribers s WHERE s.email=? AND s.is_test=0 AND s.status='pending' AND EXISTS (SELECT 1 FROM deliveries winner WHERE winner.id=? AND winner.subscriber_id=s.id AND winner.is_test=0 AND winner.status='queued'))")
@@ -264,20 +265,27 @@ export async function queueDigest(db: Database, week: string) {
   return { queued, edition: week };
 }
 // This entry point is exposed only by the existing owner-authenticated MCP and
-// admin operation dispatcher. It cannot take an email address or change gates.
+// admin operation dispatcher. Send actions cannot take an email address or
+// change gates. Release only verifies the configured recipient, never sends.
 export async function mailTest(
   db: Database,
   input: unknown,
   c: MailConfig,
 ) {
-  const a = z.object({
-    action: z.enum(["status", "restart", "confirmation", "weekly"]),
-    runId: z.string().regex(/^[a-z0-9-]{8,80}$/).optional(),
-    locale: z.enum(["en", "zh"]).default("zh"),
-    topics: z.array(z.enum(categories)).min(1).max(6).default([...categories]),
-  }).strict().parse(input);
+  const a = z.union([
+    z.object({
+      action: z.enum(["status", "restart", "confirmation", "weekly"]),
+      runId: z.string().regex(/^[a-z0-9-]{8,80}$/).optional(),
+      locale: z.enum(["en", "zh"]).default("zh"),
+      topics: z.array(z.enum(categories)).min(1).max(6).default([...categories]),
+    }).strict(),
+    z.object({ action: z.literal("release"), expectedRecipient: z.string().email().max(254) }).strict(),
+  ]).parse(input);
   const ready = mailTestReady(c);
   const recipient = c.testRecipient?.trim().toLowerCase() || "";
+  if (a.action === "release" && (!z.string().email().safeParse(recipient).success ||
+    a.expectedRecipient.trim().toLowerCase() !== recipient))
+    throw new Error("Release requires expectedRecipient to match the server-configured test recipient");
   let s = await db.prepare("SELECT * FROM subscribers WHERE email=?")
     .bind(recipient).first<Subscriber>();
   type Restart = { id: string; payload: string; created_at: string };
@@ -291,6 +299,7 @@ export async function mailTest(
   const status = async () => ({
     ready,
     publicEnabled: mailReady(c),
+    recipientRole: s ? s.is_test === 1 ? "test" : "public" : null,
     subscriberStatus: s?.is_test === 1 ? s.status : null,
     activeTestRunId: restartData()?.runId || null,
     preferences: s?.is_test === 1 ? { locale: s.locale, topics: JSON.parse(s.topics) } : null,
@@ -299,6 +308,39 @@ export async function mailTest(
     ).bind(s.id).all()).results : [],
   });
   if (a.action === "status") return status();
+  if (a.action === "release") {
+    // Releasing a test role is explicitly owner-authorized, not public consent.
+    // It needs neither transport credentials nor a disabled public mail gate.
+    if (!s) return { status: "test-recipient-not-found", ...(await status()) };
+    if (s.is_test === 0) return { status: "already-public", ...(await status()) };
+    if (s.status === "suppressed") return { status: "recipient-suppressed", ...(await status()) };
+    const blocked = await db.prepare("SELECT id FROM deliveries WHERE subscriber_id=? AND (status IN ('sending','uncertain') OR error IN ('hardbounce','spam','invalid')) LIMIT 1")
+      .bind(s.id).first();
+    if (blocked) return { status: "test-release-requires-reconciliation", ...(await status()) };
+    const now = new Date().toISOString(), markerId = `test-release:${s.id}`;
+    const payload = JSON.stringify({ kind: "mail-test-release", requestId: crypto.randomUUID(),
+      previousCreatedAt: s.created_at });
+    const oldExpiry = Date.parse(s.token_expires || "");
+    const expires = new Date(Math.max(Date.parse(now) + 86400000,
+      Number.isFinite(oldExpiry) ? oldExpiry + 1 : 0)).toISOString();
+    await db.batch([
+      // Calculate the new epoch inside the winning transaction, after every
+      // old producer. A same-millisecond or late callback stays historical.
+      db.prepare("INSERT OR IGNORE INTO editions(id,payload,created_at,is_test) SELECT ?,?,strftime('%Y-%m-%dT%H:%M:%fZ',max(?,s.created_at,COALESCE((SELECT max(d.created_at) FROM deliveries d WHERE d.subscriber_id=s.id),'')),'+0.001 seconds'),1 FROM subscribers s WHERE s.id=? AND lower(s.email)=? AND s.created_at=? AND s.is_test=1 AND s.status<>'suppressed' AND NOT EXISTS (SELECT 1 FROM deliveries d WHERE d.subscriber_id=s.id AND (d.status IN ('sending','uncertain') OR d.error IN ('hardbounce','spam','invalid')))")
+        .bind(markerId, payload, now, s.id, recipient, s.created_at),
+      // Rotate both HMAC clocks, preserve preferences and all is_test history,
+      // and require a subsequent public request plus new mailbox confirmation.
+      db.prepare("UPDATE subscribers SET is_test=0,status='unsubscribed',confirmed_at=NULL,created_at=(SELECT e.created_at FROM editions e WHERE e.id=? AND e.is_test=1 AND e.payload=?),token_expires=max(?,(SELECT strftime('%Y-%m-%dT%H:%M:%fZ',e.created_at,'+1 day') FROM editions e WHERE e.id=? AND e.is_test=1 AND e.payload=?)) WHERE id=? AND lower(email)=? AND created_at=? AND is_test=1 AND status<>'suppressed' AND EXISTS (SELECT 1 FROM editions e WHERE e.id=? AND e.is_test=1 AND e.payload=?)")
+        .bind(markerId, payload, expires, markerId, payload, s.id, recipient, s.created_at, markerId, payload),
+      db.prepare("UPDATE deliveries SET status='cancelled',updated_at=? WHERE subscriber_id=? AND status='queued' AND EXISTS (SELECT 1 FROM subscribers s JOIN editions e ON e.id=? AND e.is_test=1 AND e.payload=? WHERE s.id=deliveries.subscriber_id AND s.is_test=0 AND s.status='unsubscribed' AND s.created_at=e.created_at)")
+        .bind(now, s.id, markerId, payload),
+    ]);
+    const recorded = await db.prepare("SELECT payload FROM editions WHERE id=? AND is_test=1")
+      .bind(markerId).first<{ payload: string }>();
+    s = await db.prepare("SELECT * FROM subscribers WHERE email=?").bind(recipient).first<Subscriber>();
+    restart = await readRestart();
+    return { status: recorded?.payload === payload ? "released" : s?.is_test === 0 ? "already-public" : "test-release-unavailable", ...(await status()) };
+  }
   if (!ready) return { status: "test-not-configured", ...(await status()) };
   if (!a.runId) throw new Error("A stable test runId is required");
   // Ordinary send calls never repurpose a real subscriber or undo an opt-out.

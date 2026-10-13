@@ -1,6 +1,6 @@
 # 邮件订阅与投递维护
 
-核对日期：2026-10-13。[v1.0.0 正式回执](../releases/v1.0.0.md) 记录已经部署的 Sites 数字版本 13；本页的新默认描述当前 [订阅打磨候选](../iterations/2026-10-13-subscription-polish.md)，其新一轮 Sites 发布尚未发生，不能将下面的新交互当作已上线。生产源码、版本与验证范围以 [工程状态](../CURRENT_STATE.json) 为准；不移动历史 `v1.0.0` 标签。2026-10-13 05:26 UTC 的 v12 交接记录公众邮件、发信域名认证和真实验收已完成，发件地址 `news@ag-ui.ai`。本次文档更新没有读取生产秘密或代发真实邮件。交接状态不是实时账户状态；不要用早期“待启用”示例把生产邮件关掉，也不要重复开启。
+核对日期：2026-10-13。[订阅打磨 v14](../iterations/2026-10-13-subscription-polish.md) 已发布，其表单在反馈上方的布局保留为历史；[v1.0.0 正式回执](../releases/v1.0.0.md) 是更早的 Sites 数字版本 13。本页当前规则描述 [名额/反馈布局与测试身份释放候选](../iterations/2026-10-13-normal-subscription.md)：本页记录时尚未执行真实角色释放或本轮 Sites 发布，不能将候选交互当作已上线。生产源码、版本与验证范围以 [工程状态](../CURRENT_STATE.json) 为准；不移动历史 `v1.0.0` 标签，`v1.0.1` 另待用户验收确认。2026-10-13 05:26 UTC 的 v12 交接记录公众邮件、发信域名认证和真实验收已完成，发件地址 `news@ag-ui.ai`。本次文档更新没有读取生产秘密或代发真实邮件。交接状态不是实时账户状态；不要用早期“待启用”示例把生产邮件关掉，也不要重复开启。
 
 先读 [维护入口](README.md)、[owner 管理](owner-management.md)；域名认证记录见 [DNS 维护](dns-maintenance.md)，构建、绑定与发布见 [部署维护](deployment-maintenance.md)。
 
@@ -15,7 +15,7 @@
 | `BREVO_SENDER_EMAIL` | 已认证的发件身份；当前交接为 `news@ag-ui.ai`，不等于配置了该邮箱的收件服务 |
 | `SUBSCRIPTION_SECRET` | 签确认/管理链接，并派生申请限流键；更换会使已有链接失效 |
 | `BREVO_WEBHOOK_SECRET` | 独立回调 Bearer；必须与提供商 webhook 配置协调 |
-| `EMAIL_TEST_RECIPIENT` | owner 明确授权的固定验收收件人；工具不可指定/替换地址 |
+| `EMAIL_TEST_RECIPIENT` | owner 明确授权的固定验收收件人；发信工具不可指定/替换地址，release 的 `expectedRecipient` 仅校验该固定目标 |
 | `SITE_OWNER_EMAIL` | 管理身份绑定，见 owner 文档；不公开其值 |
 | `ANALYTICS_SECRET` | 第一方访问估算的独立密钥；不要复用邮件密钥 |
 
@@ -29,7 +29,7 @@
 
 确认原子取得名额，成功后才改为管理链接；偏好只允许 confirmed 保存。取消 pending 申请或退订 confirmed 订阅仍需读者主动 POST，不随 mount、focus、URL 的 `#unsubscribe` 或邮件扫描自动执行。退订取消仍为 queued 的邮件并释放名额，不能撤回已提交给提供商的邮件。管理链接目前不设独立到期时间，其签名绑定 subscriber ID、创建时间与密钥；不能把真实链接放进日志、截图、工单或公开文档。
 
-新页面按“信息表单 → 反馈 → 管理/取消/退订 → 名额”阅读。申请成功保留填写内容，以“查看邮件，确认订阅”提示下一步，移除返回填写按钮并避免重复申请；签名确认页成功后在结果下方继续偏好表单。管理链接支持 pending 主动取消及 confirmed 主动退订，独立区块避免误把退订当确认。签名不绑定原设备、IP 或登录会话，可在另一设备操作；以页面成功结果为准，不将打开邮件或 HTTP 200 当作已确认。
+当前候选统一按“介绍 → 名额 → 状态/反馈 → 操作表单 → 管理/取消/退订 → 隐私说明”阅读：容量靠上，反馈始终位于它解释的表单及取消/退订操作上方。申请成功保留填写内容，以“查看邮件，确认订阅”提示下一步，移除返回填写按钮并避免重复申请；签名确认页成功后在结果下方继续偏好表单。管理链接支持 pending 主动取消及 confirmed 主动退订，独立区块避免误把退订当确认。签名不绑定原设备、IP 或登录会话，可在另一设备操作；以页面成功结果为准，不将打开邮件或 HTTP 200 当作已确认。v14 的“表单 → 反馈 → 管理 → 名额”是前一轮已发布布局，不是本轮验收目标。
 
 返回原申请页时，focus/visibility 只重新读取公开容量，不代替某个订阅者的确认结果；签名确认页仅依上述首次可见规则尝试确认。中英切换在订阅页保留 `id/token/action`，其他路由不传播这些参数。取消、退订与偏好保存继续为主动操作，前端 generation/abort 防止旧页面响应覆盖新状态。
 
@@ -39,7 +39,7 @@
 
 已确认重放保持幂等。pending 有效确认代际和到期时间不因重复申请跨日改变；已知到期代际允许开始下一周期并取消旧 queued，`sending/uncertain` 阻止自动轮换。公众 `unsubscribed` 可通过新的有效 `consent=true` 申请开始下一周期：原子 winner 更新创建 epoch 和确认 expiry，两者单调推进，epoch 也严格晚于历史投递时间，避免同毫秒旧回调撤销新同意；保留历史并取消旧 queued。旧签名、旧 producer、预加载 claim 与旧管理请求不能跨入新 epoch；关联旧代际的 unsubscribe 回调不覆盖新同意，当前或无关联退订仍保守停发，hard bounce/投诉/invalid 跨代际保持抑制。
 
-`suppressed`、测试身份、历史 hardbounce/spam/invalid、任意 `sending/uncertain` 不能因公众重新申请复活；测试 restart 继续走原 owner 授权条件，不能把测试身份改成公众。公众重新订阅不是“重置记录”或解除抑制，也不是新建重复投递许可。保留原邮箱 2 次/固定 24 小时窗口、client 5 次/固定 1 小时窗口限流；这是原 `rateLimit` 策略，不是本次新增限制。维护时不通过删除记录、换 run ID、重置 quota 或购买额度来恢复。
+`suppressed`、测试身份、历史 hardbounce/spam/invalid、任意 `sending/uncertain` 不能因公众重新申请复活；测试 restart 继续走原 owner 授权条件，不能把测试身份自动确认为公众。新的 owner `release` 仅移除固定目标的测试角色，留下普通 `unsubscribed` 身份，仍要新的有效申请和邮箱确认；它不是公众接口，也不解除抑制或未知提交保护，具体边界见下文。公众重新订阅不是“重置记录”或解除抑制，也不是新建重复投递许可。保留原邮箱 2 次/固定 24 小时窗口、client 5 次/固定 1 小时窗口限流；这是原 `rateLimit` 策略，不是本次新增限制。维护时不通过删除记录、换 run ID、重置 quota 或购买额度来恢复。
 
 确认与周报共用 [mail-template.ts](../../lib/news/mail-template.ts)：邮件客户端友好的 presentation table 和 inline CSS，蓝色确认主 CTA、淡灰管理区分开；周报呈现来源、日期、原创摘要与站内报道链接。HTML 动态文本和 URL 保持转义，原始 URL 文本、纯文本版本、24 小时时限、测试标识及 Brevo 跟踪披露保留。`#unsubscribe` 仅定位管理区，不自动退订。模板本身不新增跟踪资源，不代表 Brevo 已关闭像素或链接改写；本地 mock/模板检查不能代替真实邮箱渲染验收。
 
@@ -83,11 +83,25 @@
 
 日常代码维护运行 `npm run test:news`、`node --import tsx --test tests/subscription-ui.test.mjs`；它们用隔离内存数据库、合成 `.test` 地址和 mock 提供商，不发送邮件。HTTP 验证必须使用隔离本地 D1/Worker，三个邮件开关均 false、无真实 key，`SITE_TEST_BASE_URL` 只设 loopback；步骤见 [CI 工作流](../../.github/workflows/ci.yml)。不要把 production 配置复制到本地，也不要把 production 当 test target。
 
-`mail-test` 只对 owner 明确授权的真人验收开放，严格 schema 拒绝调用者传入收件人。`status` 只读返回 readiness、publicEnabled、测试状态、偏好、activeTestRunId 及脱敏投递状态，未返回邮箱/密钥/签名链接。`confirmation/weekly` 会向服务端固定测试收件人发真实邮件；真实验收必须另获明确授权，本次文档更新不调用。
+`mail-test` 只对 owner 明确授权的验收/角色维护开放；`status/restart/confirmation/weekly` 的严格 schema 拒绝调用者传入收件人。`status` 只读返回 readiness、publicEnabled、`recipientRole`（`test/public/null`）、测试状态、偏好、activeTestRunId 及脱敏投递状态，未返回邮箱/密钥/签名链接；固定目标已是 public 时，不返回原测试明细。`confirmation/weekly` 会向服务端固定测试收件人发真实邮件；真实验收必须另获明确授权，本次文档更新不调用。仅 `release` 接受 `expectedRecipient` 作为固定目标的匹配校验，不作为发送地址。
 
 已授权验收使用稳定 8–80 字符小写字母/数字/连字符 runId，confirmation 后由真人确认，再执行同 runId 的 weekly；重跑不重发已提交/送达/失败/未知记录。测试身份、edition、delivery 均 `is_test=1`，普通周报/drain 和正式转化统计排除它们，但共用额度。改测试地址不能 flush 旧地址队列，正式订阅者不能改作测试。
 
 `restart` 是不发信的状态操作，仅在公众邮件开关关闭、固定测试身份为 unsubscribed、runId 新且不存在 sending/uncertain 时允许；仅 key 缺失导致 `mailReady=false` 不等于允许 restart，它另检查 `mailConfig.enabled=false`。抑制/正式身份拒绝。它记录 marker、保留历史、使旧链接失效，并只允许最新 restart run 发送。生产公众邮件已经开放时不要为了再测试擅自关闭它；需要这类验收时由 owner 另行安排维护窗口和影响方案。禁止定时任务调用 restart 或直接改订阅库。
+
+## 固定测试身份释放为普通读者
+
+本轮用户另行授权：让历史固定测试收件人重新走正常读者申请/确认，而非把测试确认直接计为公众订阅。新增 owner 操作 `mail-test` 的严格参数仅为 `action="release"` 与 `expectedRecipient`。后者必须是有效邮箱，trim/lowercase 后精确等于服务端 `EMAIL_TEST_RECIPIENT`；不接受另一个目标、runId、偏好或发送参数。实际调用必须在获授权的安全运营通道中完成，不把真人地址、请求内容或签名 URL 放进公开文档和日志。
+
+release 不发信，不调用 drain 或提供商，不要求关闭公众邮件，也不依赖投递 key 就绪；它不会改 `EMAIL_TEST_RECIPIENT`、生产开关或额度。它只处理已经存在的固定测试身份：保留 subscriber ID、偏好、原 `is_test=1` edition/delivery 历史，取消其旧 queued，把当前身份改为 `is_test=0/status=unsubscribed` 并清除 confirmed 时间。marker/winner 与旧 epoch CAS 在事务中绑定；新的创建 epoch 严格晚于当前时间、旧创建时间及全部历史投递，确认 expiry 也推进，因此原测试确认/管理链接失效。测试历史不改成公众投递，未提交历史队列不复活。
+
+不存在的身份返回 `test-recipient-not-found`，不会创建订阅；已有 public 身份返回幂等 `already-public`，不改变偏好、确认、退订或抑制。suppressed 返回 `recipient-suppressed`；任何历史 hardbounce/spam/invalid 或 sending/uncertain 返回 `test-release-requires-reconciliation`。事务争用等未取得 winner 返回 `test-release-unavailable`，不得将它当作已释放。成功 `released` 只证明角色操作完成，不证明普通订阅已确认或邮件送达。
+
+释放后由读者重新在正常表单给出 consent、收到新的确认邮件并完成确认，才取得公众名额并参与周报；正常限流、容量、日额度及安全抑制仍适用。旧 producer、测试 claim 以及后续 `confirmation/weekly/restart` 必须拒绝已是 public 的身份，不能继续对其发送测试邮件。关联旧代际的 unsubscribe 回调不能覆盖新同意；hard bounce/投诉/invalid 继续跨代际抑制，当前或无关联退订仍保守停发。
+
+这项独立 owner 授权不扩大定时采编权限，也不允许匿名解除测试隔离、复活抑制地址、处理未知提交或清零 quota。本页记录时，候选代码与本地验证不代表真实固定目标已释放；生产操作及用户后续正常邮箱确认须单独记录证据，不保存地址。
+
+## 真人验收历史与范围
 
 交接记录两轮真人验收、4 封测试邮件、用户退订、鉴权 Delivered 与退订后停发已通过；本轮没有重复，也没有真实 queued cancellation 或全部退信场景的证据。仓库 fixture 通过不能补成真实验收。需保持 [项目上下文](../PROJECT_CONTEXT.md) 中这些边界。
 

@@ -45,9 +45,22 @@ public engineering records with dated evidence, not live configuration.
   cycle only through fresh valid consent and monotonically newer link clocks;
   never use public signup to revive suppressed/test identities, historical hard
   failures or unknown submissions. Do not reset quotas or purchase allowance.
-  Keep provider submission
-  distinct from delivery and inbox acceptance. Candidate details are in
-  [the subscription iteration](docs/iterations/2026-10-13-subscription-polish.md).
+  A separately authorized owner `mail-test release` may remove only the
+  server-configured test role after an exact normalized `expectedRecipient`
+  check. It sends no mail, preserves history and rotates signed-link clocks,
+  leaving an ordinary unsubscribed recipient who must sign up and confirm
+  again. It cannot lift suppression, bypass uncertain submissions, reset
+  quotas, automatically subscribe or choose a sending target. Public signup
+  cannot perform this release; editorial schedules must never call it.
+  Keep provider submission distinct from delivery and inbox acceptance.
+- Current subscription layout is introduction, capacity, unified feedback,
+  action form, cancellation/unsubscribe, then privacy. Keep feedback above
+  the actions it explains across signup and signed management states.
+  Current candidate details are in
+  [the normal subscription iteration](docs/iterations/2026-10-13-normal-subscription.md);
+  [the v14 iteration](docs/iterations/2026-10-13-subscription-polish.md)
+  records the previous layout and deployment. Do not predeclare deployment,
+  recipient release or a v1.0.1 tag before their actual evidence/authorization.
 - Preserve accurate tracking and network disclosures. Anonymous Brevo
   tracking is not proof that pixels/rewritten links are disabled. Mainland
   accessibility is not guaranteed.
