@@ -4,7 +4,12 @@
   "handoff": {
     "observedAt": "2026-10-13T05:26:10.881Z",
     "auditVersion": 28,
-    "sourceDocuments": ["START_HERE.md", "PROJECT_CONTEXT.md", "CURRENT_STATE.json", "TASK.md"],
+    "sourceDocuments": [
+      "START_HERE.md",
+      "PROJECT_CONTEXT.md",
+      "CURRENT_STATE.json",
+      "TASK.md"
+    ],
     "documentsAndCodeIntegrityVerified": true
   },
   "production": {
@@ -23,7 +28,7 @@
     "existingSchedulesPreserved": true
   },
   "github": {
-    "observedAt": "2026-10-13T06:19:12Z",
+    "observedAt": "2026-10-13T08:50:00Z",
     "repository": "AutoGenUI/ag-ui.ai",
     "defaultBranch": "main",
     "mainAtObservation": "c628886cda20756fedd044c3c076bb6b7850d0e4",
@@ -41,15 +46,186 @@
     "branchProtectionPreserved": true
   },
   "verificationBaseline": {
+    "historical": true,
     "commit": "b0f0a40748474e3ce1f5918a7f9c4acff6f1a4f3",
     "evidence": "Earlier checks and receipts in this conversation; not a fresh full-suite run for documentation",
-    "passedTests": {"base": 18, "newsAndMail": 40, "subscriptionUi": 7, "localHttp": 8, "total": 73},
-    "passed": ["typescript", "content", "build", "links"],
+    "passedTests": {
+      "base": 18,
+      "newsAndMail": 40,
+      "subscriptionUi": 7,
+      "localHttp": 8,
+      "total": 73
+    },
+    "passed": [
+      "typescript",
+      "content",
+      "build",
+      "links"
+    ],
     "lintErrors": 0,
     "lintWarnings": 2,
-    "audit": {"status": "failed", "moderate": 11, "high": 21, "critical": 1, "total": 33},
-    "bundle": {"status": "failed", "node": "24.16.0", "javascriptBytes": 934566, "javascriptGzipBytes": 275319, "cssBytes": 132412, "cssGzipBytes": 24990},
-    "requiredVerify": {"status": "failed", "step": "security:audit", "subsequentSteps": "skipped", "url": "https://github.com/AutoGenUI/ag-ui.ai/actions/runs/38353374564/job/115150601215"}
+    "audit": {
+      "status": "failed",
+      "moderate": 11,
+      "high": 21,
+      "critical": 1,
+      "total": 33
+    },
+    "bundle": {
+      "status": "failed",
+      "node": "24.16.0",
+      "javascriptBytes": 934566,
+      "javascriptGzipBytes": 275319,
+      "cssBytes": 132412,
+      "cssGzipBytes": 24990
+    },
+    "requiredVerify": {
+      "status": "failed",
+      "step": "security:audit",
+      "subsequentSteps": "skipped",
+      "url": "https://github.com/AutoGenUI/ag-ui.ai/actions/runs/38353374564/job/115150601215"
+    }
+  },
+  "ciRepair": {
+    "recordedAt": "2026-10-13T08:57:00Z",
+    "evidence": "Clean independent Node 22 installation, installed-tree official-registry audit, focused and full local tests, final build, isolated Worker and browser verification",
+    "status": "local-validation-passed-awaiting-required-verify",
+    "authorizedScope": "Repair dependency audit and bundle size on the v12 sync branch, then merge PR #3 after required checks pass; preserve other branches and protection",
+    "branch": "codex/ag-ui-ai-v12-sync",
+    "remoteHeadBeforeRepair": "09f361cf01874bd53a19c9cf613c6e3c46030f20",
+    "mainBeforeRepair": "c628886cda20756fedd044c3c076bb6b7850d0e4",
+    "recoverableGitSnapshotSaved": true,
+    "repairCommit": "42c1e0c762621294652a9dacfe02b94f940bdf1e",
+    "targetedVersions": {
+      "next": "16.3.8",
+      "eslint-config-next": "16.3.8",
+      "react": "19.2.8",
+      "react-dom": "19.2.8",
+      "react-server-dom-webpack": "19.2.8",
+      "@cloudflare/vite-plugin": "1.63.1",
+      "wrangler": "4.149.0",
+      "postcss": "8.5.30",
+      "sharp": "0.35.5",
+      "vinext/image-size": "2.0.4",
+      "tinyglobby": "0.2.17"
+    },
+    "retainedVersions": {
+      "vinext": "0.0.50",
+      "ai": "7.0.34",
+      "zod": "4.4.3",
+      "markdown": "Existing versions retained"
+    },
+    "globCompatibility": {
+      "implementation": "build/fast-glob-compat",
+      "replaces": "Unpatched braces dependency chain in build consumers",
+      "validation": "16 tests passed, including actual consumer resolution and behavior, CJS/ESM and parser-boundary regressions; normal patterns compared with external fast-glob 3.3.1",
+      "installation": "Root file devDependency and $fast-glob override deduplicate both consumers to the same local package",
+      "limits": {
+        "combinedPatterns": 128,
+        "patternCharacters": 4096,
+        "combinedCharacters": 32768,
+        "openingBraceCharactersPerPattern": 16
+      }
+    },
+    "bundleChanges": [
+      "Limit Tailwind scanning to rendered source and exclude unused templates",
+      "Root Terser configuration applies client compression; explicit unminified RSC/SSR",
+      "Server supplies current-language course display fields; preserve all 16 lessons and bilingual retrieval corpus"
+    ],
+    "bundleBudgetsPreserved": {
+      "javascriptBytes": 920000,
+      "javascriptGzipBytes": 275000,
+      "cssBytes": 125000,
+      "cssGzipBytes": 24000
+    },
+    "lockfileAudit": {
+      "status": "passed-high-severity-gate",
+      "moderate": 8,
+      "high": 0,
+      "critical": 0,
+      "evidenceScope": "Official npm registry audit after clean installation; unchanged high-severity gate passed"
+    },
+    "validation": {
+      "independentInstall": {
+        "status": "passed",
+        "node": "22.23.1",
+        "npm": "10.9.8",
+        "originalCheckoutDependenciesPreserved": true
+      },
+      "postInstallAudit": {
+        "status": "passed",
+        "moderate": 8,
+        "high": 0,
+        "critical": 0,
+        "remainingChains": [
+          "drizzle-kit/esbuild",
+          "gray-matter/sprintf-js"
+        ]
+      },
+      "focusedCompatibilityTests": {
+        "status": "passed",
+        "tests": 16,
+        "includesActualConsumerPathIdentity": true,
+        "includesNormalizationQuoteAndEscapeRegressions": true
+      },
+      "fullLocalChecks": {
+        "status": "passed",
+        "tests": {
+          "baseAndCompatibility": 35,
+          "newsAndMail": 40,
+          "subscriptionUi": 7,
+          "localHttp": 8,
+          "total": 90
+        },
+        "typescript": "passed",
+        "bilingualContentDocuments": 24,
+        "lintErrors": 0,
+        "lintWarnings": 2,
+        "links": "CI check pending"
+      },
+      "build": {
+        "status": "passed",
+        "node": "22.23.1"
+      },
+      "bundle": {
+        "status": "passed",
+        "javascriptBytes": 918831,
+        "javascriptGzipBytes": 266977,
+        "cssBytes": 115604,
+        "cssGzipBytes": 22853
+      },
+      "isolatedLocalHttpAndBrowser": {
+        "status": "passed",
+        "viewports": [
+          "1440x900",
+          "390x844"
+        ],
+        "flows": [
+          "news query and project filtering",
+          "English and Chinese academy with completed offline event streams",
+          "model settings",
+          "mobile curriculum and event inspector",
+          "Chinese timeline and trends",
+          "local mail-disabled subscription and RSS entry"
+        ],
+        "consoleErrors": 0,
+        "realMailSent": false,
+        "productionDataAccessed": false
+      },
+      "independentRegressionReview": {
+        "status": "completed",
+        "finding": "Raw brace depth could be bypassed by path normalization and quoted closers",
+        "resolution": "Conservative opening-character budget and sync/async regression tests passed",
+        "limits": "No claim of exhaustive third-party package verification or proven remote DoS"
+      },
+      "requiredVerify": {
+        "status": "pending-for-final-push",
+        "url": null
+      }
+    },
+    "productionSourceUnchanged": "6027589c4bac13e456ad47d5ef2f0981ef18d94e",
+    "pushedAtObservation": false,
+    "mergedAtObservation": false
   },
   "limitations": {
     "anonymousEmailTrackingNotEquivalentToDisabledTracking": true,
@@ -64,6 +240,10 @@
     "newPaidActions": false,
     "testsUseIsolatedLocalD1AndDisabledMail": true
   },
-  "openEngineeringWork": ["Resolve dependency audit findings", "Reduce assets within existing bundle budgets", "Pass required verify before merge"],
+  "openEngineeringWork": [
+    "Push code and context commits",
+    "Pass latest-head required verify including links",
+    "Merge PR #3 normally with branch protection and retained branches"
+  ],
   "refreshRule": "Read live GitHub state before the next iteration; use dated handoff evidence for production until an authorized refresh. Keep private operational data outside this repository."
 }
