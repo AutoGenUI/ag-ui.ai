@@ -1,0 +1,21 @@
+{
+  "name": "@ag-ui-ai/fast-glob-compat",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Scoped fast-glob compatibility for this project's Next ESLint and dynamic-import build consumers",
+  "type": "commonjs",
+  "main": "./index.cjs",
+  "exports": {
+    ".": {
+      "import": "./index.mjs",
+      "require": "./index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "tinyglobby": "0.2.17"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  }
+}

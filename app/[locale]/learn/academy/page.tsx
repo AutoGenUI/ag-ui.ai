@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { AcademyChat } from "@/components/academy/academy-chat";
+import { localizeAcademyCourse } from "@/lib/academy/course";
 import { isLocale } from "@/lib/i18n";
 import { pageMetadata } from "@/lib/metadata";
 
@@ -24,5 +25,5 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
 export default async function HomePage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
-  return <AcademyChat locale={locale} />;
+  return <AcademyChat locale={locale} {...localizeAcademyCourse(locale)} />;
 }

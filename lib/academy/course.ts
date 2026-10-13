@@ -18,6 +18,24 @@ export interface AcademyLesson {
   href?: string;
 }
 
+export interface AcademyLessonView {
+  id: string;
+  order: number;
+  phase: AcademyPhase;
+  title: string;
+  summary: string;
+  outcomes: string[];
+  artifact: string;
+  starterPrompt: string;
+  source: { label: string; url: string };
+  href?: string;
+}
+
+export interface AcademyCourseView {
+  lessons: AcademyLessonView[];
+  phaseLabels: Record<AcademyPhase, string>;
+}
+
 export const phaseCopy: Record<AcademyPhase, LocalizedText> = {
   foundation: { en: "01 · Foundations", zh: "01 · 基础心智" },
   interface: { en: "02 · Interface", zh: "02 · 界面生成" },
@@ -329,4 +347,24 @@ export function getAcademyLesson(id: string | undefined): AcademyLesson | undefi
 
 export function lessonHref(locale: Locale, lesson: AcademyLesson): string | undefined {
   return lesson.href ? `/${locale}${lesson.href}` : undefined;
+}
+
+// Send only the requested language and rendered fields across the RSC boundary.
+// The complete bilingual course, including retrieval concepts, stays on the server.
+export function localizeAcademyCourse(locale: Locale): AcademyCourseView {
+  return {
+    lessons: academyLessons.map((lesson) => ({
+      id: lesson.id,
+      order: lesson.order,
+      phase: lesson.phase,
+      title: lesson.title[locale],
+      summary: lesson.summary[locale],
+      outcomes: [...lesson.outcomes[locale]],
+      artifact: lesson.artifact[locale],
+      starterPrompt: lesson.starterPrompt[locale],
+      source: { ...lesson.source },
+      ...(lesson.href ? { href: lessonHref(locale, lesson) } : {}),
+    })),
+    phaseLabels: Object.fromEntries(Object.entries(phaseCopy).map(([phase, label]) => [phase, label[locale]])) as Record<AcademyPhase, string>,
+  };
 }

@@ -11,7 +11,7 @@
     "dev": "npm run content:build && WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext dev",
     "build": "node scripts/clean-build.mjs && npm run content:build && WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext build",
     "start": "WRANGLER_LOG_PATH=.wrangler/wrangler.log node node_modules/wrangler/bin/wrangler.js dev --config dist/server/wrangler.json --local --persist-to .wrangler/state --ip 127.0.0.1 --inspector-port 0",
-    "test": "npm run content:build && node --test tests/content.test.mjs tests/decision.test.mjs tests/lab.test.mjs tests/policies.test.mjs tests/academy.test.mjs",
+    "test": "npm run content:build && node --test tests/content.test.mjs tests/decision.test.mjs tests/lab.test.mjs tests/policies.test.mjs tests/academy.test.mjs tests/glob-compat.test.mjs",
     "test:render": "node --test tests/rendered-html.test.mjs",
     "check:sources": "node scripts/ecosystem-watch.mjs",
     "check:bundle": "node scripts/check-bundle.mjs",
@@ -30,10 +30,10 @@
     "cmdk": "^1.1.1",
     "gray-matter": "^4.0.3",
     "lucide-react": "^1.25.0",
-    "next": "16.2.10",
+    "next": "16.3.8",
     "radix-ui": "^1.6.4",
-    "react": "19.2.6",
-    "react-dom": "19.2.6",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
     "tailwind-merge": "^3.6.0",
@@ -43,7 +43,7 @@
     "drizzle-orm": "0.45.2"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "1.45.1",
+    "@cloudflare/vite-plugin": "1.63.1",
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
     "@types/react": "19.2.14",
@@ -51,19 +51,25 @@
     "@vitejs/plugin-react": "6.0.3",
     "@vitejs/plugin-rsc": "0.5.28",
     "eslint": "9.39.4",
-    "eslint-config-next": "16.2.6",
-    "react-server-dom-webpack": "19.2.6",
+    "eslint-config-next": "16.3.8",
+    "react-server-dom-webpack": "19.2.8",
     "tailwindcss": "4.2.1",
     "typescript": "5.9.3",
     "vinext": "0.0.50",
     "vite": "8.1.5",
-    "wrangler": "4.112.0",
-    "drizzle-kit": "0.31.10"
+    "wrangler": "4.149.0",
+    "drizzle-kit": "0.31.10",
+    "terser": "5.47.1",
+    "fast-glob": "file:./build/fast-glob-compat"
   },
   "overrides": {
     "@babel/core": "7.29.7",
-    "postcss": "8.5.20",
-    "sharp": "0.35.3"
+    "postcss": "8.5.30",
+    "sharp": "0.35.5",
+    "vinext": {
+      "image-size": "2.0.4"
+    },
+    "fast-glob": "$fast-glob"
   },
   "type": "module"
 }
