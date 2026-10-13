@@ -2,8 +2,12 @@
 
 This file is an operation reference, not authorization. Only the Site owner's authenticated MCP connection can write. Never pass credentials in task prompts or source. Site readers cannot publish, send mail or read subscriber records.
 
-The October 13, 2026 verified handoff records production v12 with public email
-and existing collection/weekly schedules enabled. Activation paragraphs below
+The October 13, 2026 verified v12 handoff and subsequent formal v1.0.0 release
+record public email and existing collection/weekly schedules enabled. A newer
+subscription-polish candidate changes the browser and email presentation;
+its local checks are not evidence of another Sites deployment. Keep the
+immutable v1.0.0 tag and refresh dated release evidence before maintenance.
+Activation paragraphs below
 apply to a new or rebuilt setup; they do not instruct an ordinary iteration to
 disable/re-enable mail, duplicate schedules or repeat real-mail acceptance.
 This document is not a live account inspection. Maintainer procedures and
@@ -54,6 +58,12 @@ On Mondays at 09:00 Asia/Singapore, call `digest` with `{week:"YYYY-MM-DD"}` usi
 The local cap is 300 submissions/day with 50 reserved for confirmation (weekly submissions stop at 250). Quota is conservative: uncertain attempts count. Submitted is not delivered. Never automatically retry `uncertain` mail: reconcile Brevo logs with the Site owner. Unsubscribe, complaint and hard bounce suppress further mail. Brevo may record opens and clicks; do not use these records to decide whether to send mail or as proof that an email was read.
 
 The site also caps confirmed public subscribers at 250 to match the weekly budget. This is a site policy, not Brevo's contact-list limit; pending and test recipients do not count. Aggregate capacity is public at `/api/subscription/status`. Full capacity blocks new collection and confirmation with HTTP 409 `capacity-full`; an unexpired pending link may be retried after a place is released. Reading, confirmed subscribers' preferences and unsubscribe remain available. Test acceptance stays isolated. Never raise capacity or quota, enroll a test recipient publicly, or buy an upgrade from an unattended task.
+
+The candidate confirmation page automatically makes a same-origin POST only for a signed confirm action, when ready, visible and not prerendering. It attempts automatically at most once per mount; a language remount can retry idempotently. GET, HEAD, SSR and HTTP preloads do not confirm. A bot that executes JavaScript and imitates a visible browser may still confirm; visibility is not proof of a human. Cancellation and unsubscribe always require an explicit reader POST. A management link or `#unsubscribe` only opens/locates the management view. Editorial tasks must never visit signed confirmation URLs, impersonate readers or auto-confirm/cancel subscriptions.
+
+A public unsubscribed recipient may start a new cycle only through fresh valid consent on the public form. Monotonic creation epoch/confirmation expiry, historical delivery timestamps and atomic winner guards invalidate old links and prevent stale producers, claims, management requests and related old opt-out callbacks from undoing new consent. Suppressed recipients, test identities, historical hard failures and sending/uncertain submissions cannot be revived through public signup. Current or uncorrelated opt-outs still stop mail, and complaints/hard failures suppress across generations. Preserve the original email limit of 2 per fixed 24-hour window, client limit of 5 per fixed one-hour window, 300/250 submission limits and capacity 250. No direct resets or new allowance purchases are authorized by these flows.
+
+Confirmation and weekly messages share presentation-table/inline-CSS templates: the blue confirmation CTA is separate from the pale management area. Preserve escaped summaries, source/date/links, original URL text, plain text, test labels and existing Brevo tracking disclosure. Template rendering does not send or prove inbox rendering; it does not prove provider pixels or link rewriting are disabled. Neither quota exhaustion nor successful real delivery is inferred from a reader's generic check-inbox notice.
 
 Fully disabling Brevo transactional tracking remains a future privacy improvement. Owner-authorized mail acceptance may proceed when the owner accepts tracking and the subscription and privacy pages accurately disclose it. Keep public email subscriptions disabled and do not collect public subscribers’ addresses until domain and sender authentication, secure configuration, and real acceptance all pass: confirmation delivery and the user's confirmation, weekly delivery, saved preferences, unsubscribe stopping further mail, and authenticated delivery callbacks. API acceptance and open/click statistics cannot substitute for these checks. Use `mail-test` only for explicitly authorized owner acceptance to the server-configured test recipient; never call it from scheduled editorial tasks.
 

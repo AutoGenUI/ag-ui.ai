@@ -18,7 +18,7 @@
     "security:audit": "npm audit --registry=https://registry.npmjs.org --audit-level=high",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",
-    "test:news": "node --import tsx --test tests/news.test.mjs"
+    "test:news": "node --import tsx --test tests/news.test.mjs tests/mail-template.test.mjs"
   },
   "dependencies": {
     "@ag-ui/client": "0.0.57",

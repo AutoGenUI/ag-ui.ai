@@ -1,6 +1,6 @@
 # 邮件订阅与投递维护
 
-核对日期：2026-10-13；历史维护基线为 main `24edc498f5c135e283d773d946fcab3e99d239bd`，本文同时说明从 `f670b23d32e6de1e4497f46113ef277fc3fc97cc` 继续的 [v1.0.0 候选修复](../releases/v1.0.0.md)。2026-10-13 05:26 UTC 的 v12 交接记录公众邮件、发信域名认证和真实验收已完成，发件地址 `news@ag-ui.ai`。本次文档更新没有读取生产秘密或代发真实邮件；用户后续确认反馈见下文。交接状态不是实时账户状态；不要用早期“待启用”示例把生产邮件关掉，也不要重复开启。
+核对日期：2026-10-13。[v1.0.0 正式回执](../releases/v1.0.0.md) 记录已经部署的 Sites 数字版本 13；本页的新默认描述当前 [订阅打磨候选](../iterations/2026-10-13-subscription-polish.md)，其新一轮 Sites 发布尚未发生，不能将下面的新交互当作已上线。生产源码、版本与验证范围以 [工程状态](../CURRENT_STATE.json) 为准；不移动历史 `v1.0.0` 标签。2026-10-13 05:26 UTC 的 v12 交接记录公众邮件、发信域名认证和真实验收已完成，发件地址 `news@ag-ui.ai`。本次文档更新没有读取生产秘密或代发真实邮件。交接状态不是实时账户状态；不要用早期“待启用”示例把生产邮件关掉，也不要重复开启。
 
 先读 [维护入口](README.md)、[owner 管理](owner-management.md)；域名认证记录见 [DNS 维护](dns-maintenance.md)，构建、绑定与发布见 [部署维护](deployment-maintenance.md)。
 
@@ -25,19 +25,27 @@
 
 中英页面 `/zh/subscribe`、`/en/subscribe` 支持语言和主题 `model/product/protocol/framework/research/case-study`。申请要求 `consent=true`，进入 pending；确认链接 24 小时有效。`check-inbox` 是兼顾限流/隐私的通用响应，不能证明邮件发出、邮箱存在或订阅已生效。
 
-持有签名链接的读者通过同源 `POST /api/subscription/manage` 执行 `confirm/preferences/unsubscribe/read`。打开 GET 页面或邮箱扫描不确认、不退订；读者主动点击动作才提交。确认原子取得名额，确认成功后改为管理链接；偏好只允许 confirmed 保存；退订取消仍为 queued 的邮件并释放名额。管理链接目前不设独立到期时间，其签名绑定 subscriber ID、创建时间与密钥；不能把真实链接放进日志、截图、工单或公开文档。
+持有签名链接的读者通过同源 `POST /api/subscription/manage` 执行 `confirm/preferences/unsubscribe/read`。确认页在状态就绪、`document.visibilityState="visible"` 且非 prerender 时自动 POST confirm，每个 mount 最多自动尝试一次；无需再点页面按钮。GET、HEAD、SSR 或仅 HTTP 预取不执行确认。隐藏页/预渲染页等待实际显示，失败保留原签名入口并提供“重试确认”，不因 focus、容量刷新或重新渲染不断重试。中英切换若重新 mount，可以再执行一次幂等 POST；后端不会因此多占名额。浏览器可见性不是身份验证，能运行 JS 并模拟可见页面的扫描仍可能触发确认，不保证拦住全部机器人。
 
-v1.0.0 候选将中英邮件按钮明确为“打开确认页”，HTML/纯文本都说明两步：打开链接，再在页面点击“确认订阅”并等待成功提示。页面把主动确认按钮放在状态说明旁，确认前不展示偏好编辑大表单；成功后再展示服务器保存的偏好。签名不绑定原设备、IP 或登录会话，可在另一设备操作；仅打开链接不代表完成确认。
+确认原子取得名额，成功后才改为管理链接；偏好只允许 confirmed 保存。取消 pending 申请或退订 confirmed 订阅仍需读者主动 POST，不随 mount、focus、URL 的 `#unsubscribe` 或邮件扫描自动执行。退订取消仍为 queued 的邮件并释放名额，不能撤回已提交给提供商的邮件。管理链接目前不设独立到期时间，其签名绑定 subscriber ID、创建时间与密钥；不能把真实链接放进日志、截图、工单或公开文档。
 
-返回原标签页时，focus/visibility 事件只重新读取公开容量接口，不能自动确认、退订或发信。中英切换在订阅页保留 `id/token/action` 查询参数，不将这些参数带到新闻等其他路由。保留原网址文本后备和 24 小时确认时限，不因本次界面修复改变签名或代际。
+新页面按“信息表单 → 反馈 → 管理/取消/退订 → 名额”阅读。申请成功保留填写内容，以“查看邮件，确认订阅”提示下一步，移除返回填写按钮并避免重复申请；签名确认页成功后在结果下方继续偏好表单。管理链接支持 pending 主动取消及 confirmed 主动退订，独立区块避免误把退订当确认。签名不绑定原设备、IP 或登录会话，可在另一设备操作；以页面成功结果为准，不将打开邮件或 HTTP 200 当作已确认。
+
+返回原申请页时，focus/visibility 只重新读取公开容量，不代替某个订阅者的确认结果；签名确认页仅依上述首次可见规则尝试确认。中英切换在订阅页保留 `id/token/action`，其他路由不传播这些参数。取消、退订与偏好保存继续为主动操作，前端 generation/abort 防止旧页面响应覆盖新状态。
+
+[Brevo 官方双重确认流程（机器可读文章）](https://help.brevo.com/api/v2/help_center/en-us/articles/208771869.json) 描述点击邮件链接后确认与重定向，没有要求再点网页按钮；v1.0.0 的额外按钮是当时本站选定的扫描防护。取消它是当前用户授权的体验变化，不改变先申请、再验证邮件链接的流程。[Brevo 官方机器人说明（机器可读文章）](https://help.brevo.com/api/v2/help_center/en-us/articles/4406537065618.json) 明确安全软件会自动点链接并模拟用户，故不能宣称自动 POST 是真人证明。这两个 JSON 为对应官方帮助文章的同 ID 入口；网页 403 不等于文档失效。
 
 有效签名管理/确认响应新增 `subscriptionType: "public"|"test"`，仅向对应链接持有人解释身份，不改变公开聚合或暴露邮箱。public 确认占正式名额；test 确认明确显示“测试邮箱已确认”，不占名额、不进入正式周报。新客户端要求身份字段合法，遇到旧 API 缺少字段时保守显示未能确认结果，不把测试确认说成正式订阅。发布或回退后应刷新页面，使客户端与 Worker 来自匹配版本；错误提示不代表数据库操作一定没有执行，重试前按有效管理链接核对状态，不重复申请来绕过测试隔离。
 
-已确认重放保持幂等。pending 有效确认代际和到期时间不因重复申请跨日改变；已知到期代际允许开始下一周期并取消旧 queued，`sending/uncertain` 阻止自动轮换。测试 restart 改变创建 epoch 和代际，旧确认、偏好、退订请求不能覆盖新代际；前端 generation/abort 也防止旧请求覆盖现页面。维护时保留这些检查，不通过删除记录、换 run ID 或新建订阅来解除抑制。
+已确认重放保持幂等。pending 有效确认代际和到期时间不因重复申请跨日改变；已知到期代际允许开始下一周期并取消旧 queued，`sending/uncertain` 阻止自动轮换。公众 `unsubscribed` 可通过新的有效 `consent=true` 申请开始下一周期：原子 winner 更新创建 epoch 和确认 expiry，两者单调推进，epoch 也严格晚于历史投递时间，避免同毫秒旧回调撤销新同意；保留历史并取消旧 queued。旧签名、旧 producer、预加载 claim 与旧管理请求不能跨入新 epoch；关联旧代际的 unsubscribe 回调不覆盖新同意，当前或无关联退订仍保守停发，hard bounce/投诉/invalid 跨代际保持抑制。
+
+`suppressed`、测试身份、历史 hardbounce/spam/invalid、任意 `sending/uncertain` 不能因公众重新申请复活；测试 restart 继续走原 owner 授权条件，不能把测试身份改成公众。公众重新订阅不是“重置记录”或解除抑制，也不是新建重复投递许可。保留原邮箱 2 次/固定 24 小时窗口、client 5 次/固定 1 小时窗口限流；这是原 `rateLimit` 策略，不是本次新增限制。维护时不通过删除记录、换 run ID、重置 quota 或购买额度来恢复。
+
+确认与周报共用 [mail-template.ts](../../lib/news/mail-template.ts)：邮件客户端友好的 presentation table 和 inline CSS，蓝色确认主 CTA、淡灰管理区分开；周报呈现来源、日期、原创摘要与站内报道链接。HTML 动态文本和 URL 保持转义，原始 URL 文本、纯文本版本、24 小时时限、测试标识及 Brevo 跟踪披露保留。`#unsubscribe` 仅定位管理区，不自动退订。模板本身不新增跟踪资源，不代表 Brevo 已关闭像素或链接改写；本地 mock/模板检查不能代替真实邮箱渲染验收。
 
 ## 容量、免费额度与看板
 
-本站 [mail.ts](../../lib/news/mail.ts) 第 15 行起固定策略：正式 confirmed 容量 250；每日提交尝试上限 300；每次普通周报提交要求当天共用计数小于 250，为确认预留 50。确认、周报和测试都消耗同一个保守日计数；失败、不确定或 429 已计数的尝试不回退。250 是站点策略，不是 Brevo 联系人数上限，也不是独立的“每周 250 次”累计计数。
+本站 [mail.ts](../../lib/news/mail.ts) 的固定策略：正式 confirmed 容量 250；每日提交尝试上限 300；每次普通周报提交要求当天共用计数小于 250，为确认预留 50。确认、周报和测试都消耗同一个保守日计数；失败、不确定或 429 已计数的尝试不回退。250 是站点策略，不是 Brevo 联系人数上限，也不是独立的“每周 250 次”累计计数。本次体验问题不能归因为已经证实的额度耗尽；没有为了本轮修改容量/配额、购买或重置生产额度。
 
 只有 `is_test=0 AND status='confirmed'` 占正式名额。pending、unsubscribed、suppressed 和测试身份不占；满额时新申请不收集邮箱，确认返回 HTTP 409 `capacity-full`，未过期 pending 链接可在名额释放后重试。既有偏好和退订仍可用。不要增加容量、购买额度或将测试身份转正式订阅来解决满额。
 
@@ -67,7 +75,7 @@ v1.0.0 候选将中英邮件按钮明确为“打开确认页”，HTML/纯文�
 
 提供商事务回调目标 `https://ag-ui.ai/api/brevo/webhook`，认证方式 Bearer，与服务端 `BREVO_WEBHOOK_SECRET` 一致。官方 [安全 webhook 文档](https://developers.brevo.com/docs/secured-webhooks) 支持这一配置；回调事件名和 payload 以 [事务 webhook 文档](https://developers.brevo.com/docs/transactional-webhooks) 为准（2026-10-13 核对）。不把回调密钥写入 URL，不将 Brevo API key 复用为 webhook 认证。
 
-现有代码归一化大小写/下划线及 `invalid_email`，处理 Delivered、hardBounce、softBounce、spam、invalid、blocked、unsubscribed（也识别 error）。hard bounce、spam、invalid 立即 suppressed；unsubscribed 设置退订；取消相应 queued。soft bounce、blocked、error 标失败但不自动将订阅者永久抑制。原始 mailbox 与 provider message ID 或 `X-Mailin-custom: delivery:…` 必须关联既有记录，不凭任意 Delivered 建新记录；失败状态不能被迟到 Delivered 覆盖。回调处理见 [mail.ts](../../lib/news/mail.ts) 的 `mailWebhook`。
+现有代码归一化大小写/下划线及 `invalid_email`，处理 Delivered、hardBounce、softBounce、spam、invalid、blocked、unsubscribed（也识别 error）。hard bounce、spam、invalid 立即 suppressed，不能被随后 signed/provider unsubscribe 降级；unsubscribed 设置退订，但已关联的旧代际回调不撤销新公众同意；无关联回调仍保守停发。取消相应 queued。soft bounce、blocked、error 标失败但不自动将订阅者永久抑制。原始 mailbox 与 provider message ID 或 `X-Mailin-custom: delivery:…` 必须关联既有记录，不凭任意 Delivered 建新记录；失败状态不能被迟到 Delivered 覆盖。回调处理见 [mail.ts](../../lib/news/mail.ts) 的 `mailWebhook`。
 
 回调 401 先查安全认证配置是否匹配及近期轮换，不关闭验证；400 查事件格式；503 查 D1/运行故障。不要向正式 endpoint 投递人工“Delivered”去伪造验收。重复回调、回调早于 API 响应、错误拼写、错配记录等可用本地 fixture 测试；真实投诉/退信和带邮箱原始 payload 只留在安全运营记录。
 

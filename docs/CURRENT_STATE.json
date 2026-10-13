@@ -517,5 +517,69 @@
     },
     "rolloutLimit": "New client requires subscriptionType; use matching client and Worker and refresh open pages after rollback",
     "documentationFollowup": "Receipt-only PR after publication does not redeploy Sites or move the immutable v1.0.0 tag; query GitHub for its eventual commit instead of self-reference"
+  },
+  "subscriptionPolish": {
+    "recordedOn": "2026-10-13",
+    "phase": "local-verification-complete-awaiting-required-CI-and-Sites-publication",
+    "baseMain": "c67f707b9e6c7f9e9b297dbde72757a1b545ecc9",
+    "notes": "docs/iterations/2026-10-13-subscription-polish.md",
+    "behavior": [
+      "Inset native and Radix select arrows",
+      "Retained signup form above feedback and separate explicit unsubscribe card",
+      "Removed return-to-form CTA",
+      "Bilingual HTML/text mail with separate confirmation and management areas",
+      "Visible non-prerender confirmation landing automatically POSTs",
+      "Explicit public re-opt-in rotates link generation and retains history"
+    ],
+    "confirmationLimit": "GET/HEAD/prefetch are inert; visible JavaScript scanners can still confirm; visibility is not human proof",
+    "resubscriptionLimits": "Hard bounce, spam, invalid address, sending or uncertain history block reactivation; 300 daily submissions, 250 weekly budget and 250 confirmed places unchanged",
+    "validation": {
+      "tests": {
+        "base": 35,
+        "newsAndMail": 55,
+        "subscriptionUi": 11,
+        "localHttp": 8,
+        "total": 109
+      },
+      "typescript": "passed",
+      "content": "passed",
+      "lintErrors": 0,
+      "lintWarnings": 2,
+      "build": "passed",
+      "audit": {
+        "moderate": 8,
+        "high": 0,
+        "critical": 0
+      },
+      "bundle": {
+        "javascriptBytes": 919576,
+        "javascriptGzipBytes": 267411,
+        "cssBytes": 116185,
+        "cssGzipBytes": 23035
+      },
+      "browser": {
+        "viewports": [
+          "1440x900",
+          "390x844"
+        ],
+        "scope": "Isolated synthetic D1 and disabled provider; signup layout uses local UI-only response mock; HTML mail previews do not prove delivery",
+        "flows": [
+          "Single email CTA followed by exactly one automatic confirmation POST",
+          "Language switch and saved preferences",
+          "Explicit unsubscribe and pending cancellation",
+          "Test confirmation does not consume public capacity",
+          "Expired link error with manual retry",
+          "Form before signup feedback; no return-to-form button"
+        ],
+        "consoleErrors": 0
+      }
+    },
+    "schemaChanged": false,
+    "productionSecretsRead": false,
+    "productionSubscriberRowsRead": false,
+    "realMailSent": false,
+    "productionConfigurationChanges": false,
+    "newReleaseTagCreated": false,
+    "immutableReleaseTag": "v1.0.0"
   }
 }

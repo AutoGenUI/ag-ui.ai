@@ -1,7 +1,8 @@
 import { z } from "zod";
 import type { Database, NewsItem } from "./types";
 import { categories } from "./types";
-import { equalSecret, escapeHtml, hmac, singaporeDay } from "./core";
+import { equalSecret, hmac, singaporeDay } from "./core";
+import { renderMail } from "./mail-template";
 import { articles, rateLimit } from "./store";
 export type MailConfig = {
   enabled: boolean;
@@ -88,7 +89,31 @@ export async function subscribe(
   const now = new Date().toISOString(),
     expires = new Date(Date.parse(now) + 86400000).toISOString(),
     candidate = `confirm:${crypto.randomUUID()}`;
-  await db.batch([
+  const previous = await db.prepare("SELECT * FROM subscribers WHERE email=?")
+    .bind(email).first<Subscriber>();
+  if (previous?.is_test === 0 && previous.status === "unsubscribed") {
+    // A fresh, explicit public opt-in starts a new signed-link generation.
+    // Its epoch is strictly newer than old delivery timestamps too: an old
+    // callback can arrive in the same millisecond, or after clock correction.
+    const history = await db.prepare("SELECT max(created_at) AS latest FROM deliveries WHERE subscriber_id=? AND is_test=0")
+      .bind(previous.id).first<{ latest: string | null }>();
+    const latestDelivery = Date.parse(history?.latest || "");
+    const epoch = new Date(Math.max(Date.parse(now) + 1, Date.parse(previous.created_at) + 1,
+      Number.isFinite(latestDelivery) ? latestDelivery + 1 : 0)).toISOString();
+    const oldExpiry = Date.parse(previous.token_expires || "");
+    const nextExpiry = new Date(Math.max(Date.parse(expires), Date.parse(epoch) + 86400000,
+      Number.isFinite(oldExpiry) ? oldExpiry + 1 : 0)).toISOString();
+    await db.batch([
+      // This unique delivery is also the transaction's winner marker. A
+      // delayed request cannot reopen an opt-out from a later generation.
+      db.prepare("INSERT OR IGNORE INTO deliveries(id,subscriber_id,kind,status,created_at,updated_at) SELECT ?,s.id,'confirmation','queued',?,? FROM subscribers s WHERE s.id=? AND s.email=? AND s.created_at=? AND s.is_test=0 AND s.status='unsubscribed' AND (SELECT count(*) FROM subscribers WHERE is_test=0 AND status='confirmed')<? AND NOT EXISTS (SELECT 1 FROM deliveries d WHERE d.subscriber_id=s.id AND d.is_test=0 AND (d.status IN ('sending','uncertain') OR d.error IN ('hardbounce','spam','invalid')))")
+        .bind(candidate, epoch, now, previous.id, email, previous.created_at, PUBLIC_SUBSCRIBER_CAPACITY),
+      db.prepare("UPDATE subscribers SET status='pending',created_at=?,confirmed_at=NULL,token_expires=?,locale=?,topics=? WHERE id=? AND email=? AND created_at=? AND is_test=0 AND status='unsubscribed' AND EXISTS (SELECT 1 FROM deliveries d WHERE d.id=? AND d.subscriber_id=subscribers.id AND d.is_test=0 AND d.status='queued' AND d.created_at=?)")
+        .bind(epoch, nextExpiry, input.locale, JSON.stringify(input.topics), previous.id, email, previous.created_at, candidate, epoch),
+      db.prepare("UPDATE deliveries SET status='cancelled',updated_at=? WHERE subscriber_id=? AND is_test=0 AND status='queued' AND id<>? AND EXISTS (SELECT 1 FROM subscribers s WHERE s.id=? AND s.is_test=0 AND s.status='pending' AND s.created_at=?) AND EXISTS (SELECT 1 FROM deliveries winner WHERE winner.id=? AND winner.subscriber_id=? AND winner.is_test=0 AND winner.status='queued' AND winner.created_at=?)")
+        .bind(now, previous.id, candidate, previous.id, epoch, candidate, previous.id, epoch),
+    ]);
+  } else await db.batch([
     // D1 serializes this batch. Concurrent callers use the actual email winner,
     // never a losing request's subscriber ID or confirmation expiry.
     db.prepare("INSERT OR IGNORE INTO subscribers(id,email,locale,topics,status,created_at,token_expires) SELECT ?,?,?,?,'pending',?,? WHERE (SELECT count(*) FROM subscribers WHERE is_test=0 AND status='confirmed')<?")
@@ -150,11 +175,11 @@ export async function manageSubscription(
   } else if (action === "unsubscribe") {
     await db.batch([
       db
-        .prepare("UPDATE subscribers SET status='unsubscribed' WHERE id=? AND created_at=?")
+        .prepare("UPDATE subscribers SET status='unsubscribed' WHERE id=? AND created_at=? AND status<>'suppressed'")
         .bind(id, s.created_at),
       db
         .prepare(
-          "UPDATE deliveries SET status='cancelled',updated_at=? WHERE subscriber_id=? AND status='queued' AND EXISTS (SELECT 1 FROM subscribers s WHERE s.id=? AND s.created_at=? AND s.status='unsubscribed')",
+          "UPDATE deliveries SET status='cancelled',updated_at=? WHERE subscriber_id=? AND status='queued' AND EXISTS (SELECT 1 FROM subscribers s WHERE s.id=? AND s.created_at=? AND s.status IN ('unsubscribed','suppressed'))",
         )
         .bind(new Date().toISOString(), id, id, s.created_at),
     ]);
@@ -227,12 +252,12 @@ export async function queueDigest(db: Database, week: string) {
   for (const s of subscribers) {
     const topics: string[] = JSON.parse(s.topics);
     if (!items.some((x) => topics.includes(x.category))) continue;
-    const now = new Date().toISOString();
+    const now = new Date(Math.max(Date.now(), Date.parse(s.created_at))).toISOString();
     const r = await db
       .prepare(
-        "INSERT OR IGNORE INTO deliveries(id,subscriber_id,edition_id,kind,status,created_at,updated_at) VALUES(?,?,?,'weekly','queued',?,?)",
+        "INSERT OR IGNORE INTO deliveries(id,subscriber_id,edition_id,kind,status,created_at,updated_at) SELECT ?,s.id,?,'weekly','queued',?,? FROM subscribers s WHERE s.id=? AND s.created_at=? AND s.is_test=0 AND s.status='confirmed'",
       )
-      .bind(`${week}:${s.id}`, s.id, week, now, now)
+      .bind(`${week}:${s.id}`, week, now, now, s.id, s.created_at)
       .run();
     queued += r.meta.changes;
   }
@@ -398,7 +423,7 @@ async function deliverQueued(
   let submitted = 0;
   const scope = test
     ? `d.is_test=1 AND s.is_test=1 AND d.id=? AND lower(s.email)=? AND ${activeTestRunSql}`
-    : "d.is_test=0 AND s.is_test=0";
+    : "d.is_test=0 AND s.is_test=0 AND d.created_at>=s.created_at";
   const scopeArgs = test ? [test.deliveryId, test.recipient, test.runId, test.runId] : [];
   // A process lost after submission may have sent mail. Never blindly retry it.
   await db
@@ -433,9 +458,9 @@ async function deliverQueued(
       day = singaporeDay();
     const claim = await db
       .prepare(
-        `UPDATE deliveries SET status='sending',attempted_at=?,updated_at=? WHERE id=? AND status='queued' AND EXISTS (SELECT 1 FROM subscribers s WHERE s.id=deliveries.subscriber_id AND ((deliveries.kind='weekly' AND s.status='confirmed') OR (deliveries.kind='confirmation' AND s.status='pending' AND s.token_expires>?))${test ? ` AND s.is_test=1 AND deliveries.is_test=1 AND lower(s.email)=? AND ${activeTestRunSql}` : ""}) RETURNING id`,
+        `UPDATE deliveries SET status='sending',attempted_at=?,updated_at=? WHERE id=? AND status='queued' AND EXISTS (SELECT 1 FROM subscribers s WHERE s.id=deliveries.subscriber_id AND ((deliveries.kind='weekly' AND s.status='confirmed') OR (deliveries.kind='confirmation' AND s.status='pending' AND s.token_expires>?))${test ? ` AND s.is_test=1 AND deliveries.is_test=1 AND lower(s.email)=? AND ${activeTestRunSql}` : " AND s.is_test=0 AND deliveries.is_test=0 AND deliveries.created_at>=s.created_at AND s.created_at=? AND (deliveries.kind<>'confirmation' OR s.token_expires=?)"}) RETURNING id`,
       )
-      .bind(now, now, d.id, now, ...(test ? [test.recipient, test.runId, test.runId] : []))
+      .bind(now, now, d.id, now, ...(test ? [test.recipient, test.runId, test.runId] : [d.subscriber_created, d.token_expires]))
       .first();
     if (!claim) continue;
     const quota = await db
@@ -459,24 +484,11 @@ async function deliverQueued(
       token_expires: d.token_expires,
     } as Subscriber;
     const manage = `https://ag-ui.ai/${d.locale}/subscribe?id=${s.id}&token=${await tokenFor(s, c.secret)}`;
-    const copyInstruction = d.locale === "zh"
-      ? "如果按钮打不开，请复制下面的网址文字并粘贴到浏览器地址栏。直接点击或邮箱自动识别的链接仍可能经过 Brevo 跟踪。"
-      : "If a button will not open, copy the URL text below and paste it into your browser's address bar. Clicked or automatically detected email links may still pass through Brevo tracking.";
-    const copyableUrl = (url: string) => `<p>${escapeHtml(copyInstruction)}</p><p><span style="overflow-wrap:anywhere;word-break:break-all">${escapeHtml(url)}</span></p>`;
-    const manageLabel = d.locale === "zh" ? "退订 / 修改偏好" : "Unsubscribe / preferences";
-    let subject, html, text;
+    let rendered;
     if (d.kind === "confirmation") {
-      subject =
-        d.locale === "zh"
-          ? "确认订阅 AG-UI.AI"
-          : "Confirm your AG-UI.AI subscription";
       const link = `https://ag-ui.ai/${d.locale}/subscribe?action=confirm&id=${s.id}&token=${await tokenFor(s, c.secret, "confirm")}`;
-      const confirmLabel = d.locale === "zh" ? "打开确认页（24 小时内有效）" : "Open the confirmation page (valid for 24 hours)";
-      const confirmSteps = d.locale === "zh"
-        ? "第一步：打开下面的确认页。第二步：在页面点击“确认订阅”，看到成功提示后才完成邮箱确认。仅点击邮件链接或打开页面不会确认订阅；无需在同一设备操作。"
-        : "Step 1: Open the confirmation page below. Step 2: Select “Confirm subscription” on that page and wait for the success message. Clicking this email link or opening the page does not confirm your subscription. You can complete both steps on another device.";
-      html = `<p>${subject}</p><p>${escapeHtml(confirmSteps)}</p><p><a href="${escapeHtml(link)}">${confirmLabel}</a></p>${copyableUrl(link)}`;
-      text = `${subject}\n\n${confirmSteps}\n\n${confirmLabel}\n${copyInstruction}\n${link}`;
+      rendered = renderMail({ locale: d.locale as "en" | "zh", kind: "confirmation",
+        confirmUrl: link, manageUrl: manage, test: !!test });
     } else {
       const ed = await db
         .prepare("SELECT payload FROM editions WHERE id=?")
@@ -484,24 +496,11 @@ async function deliverQueued(
         .first<{ payload: string }>();
       const topics: string[] = JSON.parse(d.topics);
       const items: NewsItem[] = ed ? JSON.parse(ed.payload).items : [];
-      subject = `AG-UI.AI · ${d.locale === "zh" ? "生成式 UI 周报" : "Generative UI weekly"} · ${d.edition_id}`;
       const selected = items.filter((x) => topics.includes(x.category));
-      html = selected
-        .map(
-          (x) =>
-            `<h2><a href="https://ag-ui.ai/${d.locale}/news/${x.slug}">${escapeHtml(x[d.locale as "en" | "zh"].title)}</a></h2><p>${escapeHtml(x[d.locale as "en" | "zh"].summary)}</p>`,
-        )
-        .join("");
-      text = `${subject}\n\n${selected.map((x) => `${x[d.locale as "en" | "zh"].title}\n${x[d.locale as "en" | "zh"].summary}\nhttps://ag-ui.ai/${d.locale}/news/${x.slug}`).join("\n\n")}`;
+      rendered = renderMail({ locale: d.locale as "en" | "zh", kind: "weekly",
+        editionId: d.edition_id, items: selected, manageUrl: manage, test: !!test });
     }
-    html += `<p><a href="${escapeHtml(manage)}">${manageLabel}</a></p>${copyableUrl(manage)}<p>AG-UI.AI · Independent Generative UI intelligence · Sent with Brevo</p>`;
-    text += `\n\n${manageLabel}\n${copyInstruction}\n${manage}\n\nAG-UI.AI · Independent Generative UI intelligence · Sent with Brevo`;
-    if (test) {
-      subject = `[${d.locale === "zh" ? "验收测试" : "Acceptance test"}] ${subject}`;
-      const testNotice = d.locale === "zh" ? "这是所有者授权的邮件验收测试，不会将此邮箱加入正式周报名单。" : "This owner-authorized acceptance test does not add this mailbox to the production newsletter.";
-      html += `<p>${testNotice}</p>`;
-      text += `\n\n${testNotice}`;
-    }
+    const { subject, html, text } = rendered;
     try {
       const response = await fetch("https://api.brevo.com/v3/smtp/email", {
         method: "POST",
@@ -578,21 +577,27 @@ export async function mailWebhook(db: Database, input: unknown) {
         : stop || ["softbounce", "blocked", "error"].includes(event)
           ? "failed"
           : null;
+    const deliveryId=e['X-Mailin-custom']?.match(/^delivery:(.+)$/)?.[1]||'';
     if (stop)
       await db.batch([
         db
-          .prepare("UPDATE subscribers SET status=? WHERE email=?")
+          // A late opt-out callback from an old signed-link generation must
+          // not undo fresh consent. Uncorrelated opt-outs stay conservative;
+          // complaints and hard failures always suppress every generation.
+          .prepare(event === "unsubscribed"
+            ? "UPDATE subscribers SET status=? WHERE email=? AND status<>'suppressed' AND NOT EXISTS (SELECT 1 FROM deliveries d WHERE d.subscriber_id=subscribers.id AND (d.provider_id=? OR d.id=?) AND d.created_at<subscribers.created_at)"
+            : "UPDATE subscribers SET status=? WHERE email=?")
           .bind(
             event === "unsubscribed" ? "unsubscribed" : "suppressed",
             e.email.toLowerCase(),
+            ...(event === "unsubscribed" ? [e['message-id'] || '', deliveryId] : []),
           ),
         db
           .prepare(
-            "UPDATE deliveries SET status='cancelled' WHERE status='queued' AND subscriber_id IN (SELECT id FROM subscribers WHERE email=?)",
+            "UPDATE deliveries SET status='cancelled' WHERE status='queued' AND subscriber_id IN (SELECT id FROM subscribers WHERE email=? AND status IN ('unsubscribed','suppressed'))",
           )
           .bind(e.email.toLowerCase()),
       ]);
-    const deliveryId=e['X-Mailin-custom']?.match(/^delivery:(.+)$/)?.[1]||'';
     if(state&&(e['message-id']||deliveryId)){
       // Authenticated callbacks can race the submission response. Resolve the
       // stable delivery reference, and never let delivery overwrite a failure.
