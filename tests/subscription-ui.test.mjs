@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { parseSubscriptionCapacity, parseSubscriberView, subscriptionOutcome, subscriptionLocaleHref } from '../lib/news/subscription-ui.ts';
+import { parseSubscriptionCapacity, parseSubscriberView, subscriptionOutcome, subscriptionLocaleHref, visibleConfirmation } from '../lib/news/subscription-ui.ts';
 
 const capacity={enabled:true,confirmedCount:250,capacity:250,remaining:0,full:true,dailyLimit:300,weeklyLimit:250};
 const subscriber=(status,patch={})=>({status,subscriptionType:'public',locale:'en',topics:'["research"]',token:'a'.repeat(64),...patch});
@@ -81,4 +81,14 @@ test('language navigation never carries signed subscription query to another pag
   assert.equal(subscriptionLocaleHref('/enough','en','zh',query),'/zh');
   assert.equal(subscriptionLocaleHref(null,'en','zh',query),'/zh');
   assert.equal(subscriptionLocaleHref('/en/subscribe','en','zh','source=synthetic'),'/zh/subscribe');
+});
+test('automatic confirmation requires its signed action, loaded status and a visible non-prerendered page',()=>{
+  assert.equal(visibleConfirmation('confirm',true,'visible'),true);
+  assert.equal(visibleConfirmation('confirm',true,'visible',false),true);
+  for(const action of [undefined,'read','preferences','unsubscribe','signup'])
+    assert.equal(visibleConfirmation(action,true,'visible'),false);
+  for(const visibility of ['hidden','prerender',''])
+    assert.equal(visibleConfirmation('confirm',true,visibility),false);
+  assert.equal(visibleConfirmation('confirm',false,'visible'),false);
+  assert.equal(visibleConfirmation('confirm',true,'visible',true),false);
 });

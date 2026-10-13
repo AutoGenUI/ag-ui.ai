@@ -3,7 +3,7 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import * as nodeModule from 'node:module';
-import { newsSchema, canonicalUrl, singaporeDay } from '../lib/news/core.ts';
+import { newsSchema, canonicalUrl, singaporeDay, hmac } from '../lib/news/core.ts';
 import { articles, upsertNews, seedDatabase, seed, freshness } from '../lib/news/store.ts';
 import { operate } from '../lib/news/operations.ts';
 import { recordMetric, statsSummary } from '../lib/news/analytics.ts';
@@ -59,7 +59,7 @@ test('public capacity aggregates confirmed production subscribers only without p
   const dashboard=await operate(db,'dashboard',{},active);
   for(const key of Object.keys(summary)) assert.equal(dashboard.email[key],summary[key]);
 });
-test('public confirmation from the generated two-step email claims one place and reports its subscription type',async()=>{
+test('public confirmation from the generated email claims one place and reports its subscription type',async()=>{
   for(const locale of ['zh','en']) {
     const db=database();
     await mockedMail(async sent=>{
@@ -67,8 +67,8 @@ test('public confirmation from the generated two-step email claims one place and
       assert.equal(signup.status,'check-inbox');assert.equal(sent.length,1);
       const mail=sent[0],link=confirmationLink(mail);
       const expectedCopy=locale==='zh'
-        ? [/第一步/,/第二步/,/打开确认页（24 小时内有效）/,/点击“确认订阅”/,/仅点击邮件链接或打开页面不会确认订阅/,/无需在同一设备操作/]
-        : [/Step 1:/,/Step 2:/,/Open the confirmation page \(valid for 24 hours\)/,/Select “Confirm subscription”/,/opening the page does not confirm your subscription/,/another device/];
+        ? [/自动确认订阅/,/无需再点击一次/,/24 小时内有效/,/确认订阅/]
+        : [/confirm your subscription automatically/,/No second click is needed/,/valid for 24 hours/,/Confirm subscription/];
       for(const copy of expectedCopy) {
         assert.match(decodeHtml(mail.htmlContent),copy);assert.match(mail.textContent,copy);
       }
@@ -295,9 +295,9 @@ test('public retries never rotate or resend sending and uncertain confirmation g
     },()=>{if(failure==='timeout') throw new Error('fixture timeout');return new Response('',{status:503});});
   }
 });
-test('public signup preserves opted-out, confirmed and acceptance subscribers and requires consent',async(t)=>{
+test('public signup preserves suppressed, confirmed and acceptance subscribers and requires consent',async(t)=>{
   t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-10-12T01:00:00.000Z')});
-  for(const [status,is_test] of [['confirmed',0],['suppressed',0],['unsubscribed',0],['pending',1]]) {
+  for(const [status,is_test] of [['confirmed',0],['suppressed',0],['pending',1],['unsubscribed',1],['suppressed',1]]) {
     const db=database(),s=await pendingPublicFixture(db,`protected-${status}-${is_test}`,'2000-01-01T00:00:00.000Z','queued',{status,is_test});
     const before={subscriber:await db.prepare('SELECT * FROM subscribers').first(),delivery:await db.prepare('SELECT * FROM deliveries').first()};
     await mockedMail(async sent=>{
@@ -311,6 +311,204 @@ test('public signup preserves opted-out, confirmed and acceptance subscribers an
   await assert.rejects(()=>subscribe(db,publicInput('fixture-no-consent@example.test',{consent:false}),active,'fixture-no-consent'));
   assert.equal((await db.prepare('SELECT count(*) AS n FROM subscribers').first()).n,0);
 });
+test('a fresh public opt-in after unsubscribe rotates both link clocks, keeps history and claims one place',async(t)=>{
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-10-13T01:00:00.000Z')});
+  const db=database(),input=publicInput('fixture-public-reoptin@example.test');
+  await mockedMail(async sent=>{
+    await subscribe(db,input,active,'fixture-reoptin-first');
+    const previous=await db.prepare('SELECT * FROM subscribers').first(),first=await confirmFromMail(db,sent[0]);
+    await manageSubscription(db,{id:previous.id,token:first.token,action:'unsubscribe'},active);
+    await db.prepare("INSERT INTO deliveries(id,subscriber_id,kind,status,created_at,updated_at) VALUES('fixture-old-public-queue',?,'weekly','queued',?,?)").bind(previous.id,previous.created_at,previous.created_at).run();
+    const oldSubmission=await db.prepare("SELECT * FROM deliveries WHERE kind='confirmation'").first();
+    assert.equal((await subscribe(db,{...input,locale:'en',topics:['research']},active,'fixture-reoptin-new')).status,'check-inbox');
+    const current=await db.prepare('SELECT * FROM subscribers').first();
+    assert.equal(current.id,previous.id);assert.equal(current.status,'pending');assert.equal(current.is_test,0);assert.equal(current.confirmed_at,null);
+    assert.equal(current.created_at,'2026-10-13T01:00:00.001Z');assert.equal(current.token_expires,'2026-10-14T01:00:00.001Z');
+    assert.equal(current.locale,'en');assert.equal(current.topics,'["research"]');
+    assert.equal((await db.prepare("SELECT status FROM deliveries WHERE id='fixture-old-public-queue'").first()).status,'cancelled');
+    assert.deepEqual(await db.prepare('SELECT * FROM deliveries WHERE id=?').bind(oldSubmission.id).first(),oldSubmission);
+    assert.equal(sent.length,2);assert.equal((await mailCapacity(db,active)).confirmedCount,0);
+    await assert.rejects(()=>confirmFromMail(db,sent[0]),/Invalid or expired link/);
+    for(const action of ['read','preferences','unsubscribe']) await assert.rejects(()=>manageSubscription(db,{id:previous.id,token:first.token,action,locale:'zh',topics:['product']},active),/Invalid or expired link/);
+    const confirmed=await confirmFromMail(db,sent[1]);assert.equal(confirmed.subscriptionType,'public');assert.equal(confirmed.status,'confirmed');
+    assert.equal((await mailCapacity(db,active)).confirmedCount,1);assert.equal((await mailCapacity(db,active)).remaining,249);
+    await confirmFromMail(db,sent[1]);await drainQueue(db,active);
+    assert.equal((await mailCapacity(db,active)).confirmedCount,1);assert.equal(sent.length,2);assert.equal((await db.prepare('SELECT count FROM mail_quota').first()).count,2);
+  },count=>Response.json({messageId:`fixture-reoptin-message-${count}`}));
+});
+test('concurrent public re-opt-ins have one winner and a delayed request cannot reopen a later opt-out',async(t)=>{
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-10-13T01:00:00.000Z')});
+  for(const delayed of [false,true]) {
+    const db=database(),s=await pendingPublicFixture(db,`reoptin-concurrent-${delayed}`,'2026-10-14T01:00:00.000Z','delivered',{status:'unsubscribed',created_at:new Date().toISOString()});
+    let enter,release,paused=false;
+    const entered=new Promise(resolve=>{enter=resolve;}),released=new Promise(resolve=>{release=resolve;});
+    if(delayed) {const batch=db.batch;db.batch=async statements=>{if(!paused){paused=true;enter();await released;}return batch(statements);};}
+    await mockedMail(async sent=>{
+      const first=subscribe(db,publicInput(s.email),active,'fixture-reoptin-concurrent-a');
+      if(delayed) await entered;
+      const second=await subscribe(db,publicInput(s.email,{locale:'en'}),active,'fixture-reoptin-concurrent-b');
+      assert.equal(second.status,'check-inbox');
+      if(delayed) {
+        const confirmed=await confirmFromMail(db,sent[0]);
+        await manageSubscription(db,{id:s.id,token:confirmed.token,action:'unsubscribe'},active);
+        const completed=await db.prepare('SELECT * FROM subscribers WHERE id=?').bind(s.id).first();
+        release();await first;assert.deepEqual(await db.prepare('SELECT * FROM subscribers WHERE id=?').bind(s.id).first(),completed);
+      } else {await first;assert.equal((await confirmFromMail(db,sent[0])).status,'confirmed');}
+      assert.equal(sent.length,1);assert.equal((await db.prepare('SELECT count(*) AS n FROM deliveries').first()).n,2);
+      assert.equal((await db.prepare('SELECT count FROM mail_quota').first()).count,1);
+    });
+  }
+});
+test('public re-opt-in respects consent, capacity, rate limits and the confirmation daily quota',async(t)=>{
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-10-13T01:00:00.000Z')});
+  for(const reason of ['consent','capacity','capacity-race','rate','quota']) {
+    const db=database(),s=await pendingPublicFixture(db,`reoptin-gate-${reason}`,'2026-10-14T01:00:00.000Z','delivered',{status:'unsubscribed'});
+    const before=await db.prepare('SELECT * FROM subscribers').first();
+    if(reason==='capacity') await capacityFixture(db,250);
+    if(reason==='capacity-race') {await capacityFixture(db,249);const batch=db.batch;let filled=false;db.batch=async statements=>{if(!filled){filled=true;await capacityFixture(db,1,0,'reoptin-race-last-slot');}return batch(statements);};}
+    if(reason==='rate') await db.prepare('INSERT INTO rate_limits(key,count,expires_at) VALUES(?,2,?)').bind(`email:${await hmac(s.email,active.secret)}:${Math.floor(Date.now()/86400000)}`,Date.now()+86400000).run();
+    if(reason==='quota') await db.prepare('INSERT INTO mail_quota(day,count) VALUES(?,300)').bind(singaporeDay()).run();
+    await mockedMail(async sent=>{
+      if(reason==='consent') await assert.rejects(()=>subscribe(db,publicInput(s.email,{consent:false}),active,'fixture-reoptin-gate'));
+      else {const result=await subscribe(db,publicInput(s.email),active,'fixture-reoptin-gate');assert.equal(result.status,reason.startsWith('capacity')?'capacity-full':'check-inbox');}
+      assert.equal(sent.length,0);
+      const current=await db.prepare('SELECT * FROM subscribers WHERE id=?').bind(s.id).first();
+      if(reason==='quota') {
+        assert.equal(current.status,'pending');assert.notEqual(current.created_at,s.created_at);
+        const queued=await db.prepare("SELECT id,status FROM deliveries WHERE id<>?").bind(s.deliveryId).first();assert.equal(queued.status,'queued');
+        assert.equal((await db.prepare('SELECT count FROM mail_quota').first()).count,300);
+        t.mock.timers.tick(3600000);await db.prepare('UPDATE mail_quota SET count=0').run();
+        await drainQueue(db,active);assert.equal(sent.length,1);assert.equal((await confirmFromMail(db,sent[0])).status,'confirmed');
+      } else {assert.deepEqual(current,before);assert.equal((await db.prepare('SELECT count(*) AS n FROM deliveries').first()).n,1);}
+    });
+  }
+});
+test('public re-opt-in never revives unknown submissions or historical suppression',async(t)=>{
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-10-13T01:00:00.000Z')});
+  for(const reason of ['sending-confirmation','uncertain-confirmation','sending-weekly','uncertain-weekly','hardbounce','spam','invalid']) {
+    const db=database(),s=await pendingPublicFixture(db,`reoptin-stop-${reason}`,'2026-10-14T01:00:00.000Z','failed',{status:'unsubscribed'});
+    if(reason.includes('-')) {const [status,kind]=reason.split('-');await db.prepare('UPDATE deliveries SET status=?,kind=?').bind(status,kind).run();}
+    else await db.prepare('UPDATE deliveries SET error=?').bind(reason).run();
+    const before={subscriber:await db.prepare('SELECT * FROM subscribers').first(),delivery:await db.prepare('SELECT * FROM deliveries').first()};
+    await mockedMail(async sent=>{
+      await subscribe(db,publicInput(s.email),active,'fixture-reoptin-stop');
+      assert.deepEqual(await db.prepare('SELECT * FROM subscribers').first(),before.subscriber);assert.deepEqual(await db.prepare('SELECT * FROM deliveries').first(),before.delivery);
+      assert.equal(sent.length,0);assert.equal((await db.prepare('SELECT count(*) AS n FROM mail_quota').first()).n,0);
+    });
+  }
+});
+test('old public queue producers and preloaded claims cannot cross a re-opt-in epoch',async(t)=>{
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-10-13T01:00:00.000Z')});
+  for(const stage of ['weekly-insert','weekly-claim','confirmation-claim']) {
+    const db=database();await seedDatabase(db);
+    const confirmation=stage==='confirmation-claim';
+    const s=await pendingPublicFixture(db,`reoptin-queue-${stage}`,'2026-10-14T01:00:00.000Z',confirmation?'queued':null,{status:confirmation?'pending':'confirmed',created_at:new Date().toISOString()});
+    const oldManage=await tokenFor(s,active.secret),oldDelivery=confirmation?s.deliveryId:`2026-10-12:${s.id}`;
+    if(stage==='weekly-claim') assert.equal((await queueDigest(db,'2026-10-12')).queued,1);
+    let enter,release,paused=false;
+    const entered=new Promise(resolve=>{enter=resolve;}),released=new Promise(resolve=>{release=resolve;});
+    const prepare=db.prepare;
+    db.prepare=sql=>{const statement=prepare(sql);
+      if(stage==='weekly-insert') {const run=statement.run;statement.run=async()=>{if(!paused&&sql.startsWith('INSERT OR IGNORE INTO deliveries')&&sql.includes("'weekly','queued'")){paused=true;enter();await released;}return run.call(statement);};}
+      else {const first=statement.first;statement.first=async()=>{if(!paused&&sql.startsWith("UPDATE deliveries SET status='sending'")){paused=true;enter();await released;}return first.call(statement);};}
+      return statement;};
+    await mockedMail(async sent=>{
+      const stale=stage==='weekly-insert'?queueDigest(db,'2026-10-12'):drainQueue(db,active);
+      await entered;
+      await manageSubscription(db,{id:s.id,token:oldManage,action:'unsubscribe'},active);
+      await subscribe(db,publicInput(s.email),active,'fixture-reoptin-queue-current');assert.equal(sent.length,1);
+      await confirmFromMail(db,sent[0]);
+      // Simulate an old queue row arriving after cancellation. It must remain
+      // ineligible both for the paused claim and for subsequent normal drains.
+      if(stage!=='weekly-insert') await db.prepare("UPDATE deliveries SET status='queued' WHERE id=?").bind(oldDelivery).run();
+      release();const result=await stale;assert.equal(stage==='weekly-insert'?result.queued:result.submitted,0);
+      await drainQueue(db,active);assert.equal(sent.length,1);assert.equal((await db.prepare('SELECT count FROM mail_quota').first()).count,1);
+      const old=await db.prepare('SELECT status,attempted_at FROM deliveries WHERE id=?').bind(oldDelivery).first();
+      if(stage==='weekly-insert') {
+        assert.equal(old,null);assert.equal((await queueDigest(db,'2026-10-12')).queued,1);
+        await drainQueue(db,active);assert.equal(sent.length,2);
+      } else {assert.equal(old.status,'queued');assert.equal(old.attempted_at,confirmation?s.created_at:null);}
+    });
+  }
+});
+test('previously validated public confirmation, preferences and unsubscribe cannot mutate a new epoch',async(t)=>{
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-10-13T01:00:00.000Z')});
+  for(const action of ['confirm','preferences','unsubscribe']) {
+    const db=database(),s=await pendingPublicFixture(db,`reoptin-manage-${action}`,'2026-10-14T01:00:00.000Z','delivered',{status:action==='confirm'?'unsubscribed':'confirmed',created_at:new Date().toISOString()});
+    const oldManage=await tokenFor(s,active.secret),oldToken=action==='confirm'?await tokenFor(s,active.secret,'confirm'):oldManage;
+    let enter,release,paused=false;
+    const entered=new Promise(resolve=>{enter=resolve;}),released=new Promise(resolve=>{release=resolve;});
+    const prepare=db.prepare;
+    db.prepare=sql=>{const statement=prepare(sql);statement.fixtureSql=sql;
+      if(action!=='unsubscribe') {const run=statement.run;statement.run=async()=>{if(!paused&&sql.startsWith(action==='confirm'?"UPDATE subscribers SET status='confirmed'":"UPDATE subscribers SET locale=?,topics=? WHERE id=? AND status='confirmed'")){paused=true;enter();await released;}return run.call(statement);};}
+      return statement;};
+    if(action==='unsubscribe') {const batch=db.batch;db.batch=async statements=>{if(!paused&&statements.some(statement=>statement.fixtureSql.startsWith("UPDATE subscribers SET status='unsubscribed'"))){paused=true;enter();await released;}return batch(statements);};}
+    await mockedMail(async sent=>{
+      const stale=manageSubscription(db,{id:s.id,token:oldToken,action,locale:'en',topics:['research']},active),rejected=assert.rejects(stale,/Invalid or expired link/);
+      await entered;
+      if(action!=='confirm') await manageSubscription(db,{id:s.id,token:oldManage,action:'unsubscribe'},active);
+      await subscribe(db,publicInput(s.email),active,'fixture-reoptin-manage-current');
+      if(action!=='confirm') await confirmFromMail(db,sent[0]);
+      const before={subscriber:await db.prepare('SELECT * FROM subscribers').first(),deliveries:(await db.prepare('SELECT * FROM deliveries ORDER BY id').all()).results};
+      release();await rejected;
+      assert.deepEqual(await db.prepare('SELECT * FROM subscribers').first(),before.subscriber);
+      assert.deepEqual((await db.prepare('SELECT * FROM deliveries ORDER BY id').all()).results,before.deliveries);assert.equal(sent.length,1);
+    });
+  }
+});
+test('suppression remains terminal through signed opt-out, provider opt-out and public re-opt-in',async(t)=>{
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-10-13T01:00:00.000Z')});
+  for(const event of ['hardBounce','spam','invalid_email']) {
+    const db=database(),s=await pendingPublicFixture(db,`reoptin-suppression-${event.toLowerCase()}`,'2026-10-14T01:00:00.000Z','submitted',{status:'confirmed'}),token=await tokenFor(s,active.secret);
+    await mailWebhook(db,{event,email:s.email,'X-Mailin-custom':`delivery:${s.deliveryId}`});
+    assert.equal((await manageSubscription(db,{id:s.id,token,action:'unsubscribe'},active)).status,'suppressed');
+    await mailWebhook(db,{event:'unsubscribed',email:s.email,'X-Mailin-custom':`delivery:${s.deliveryId}`});
+    await mockedMail(async sent=>{await subscribe(db,publicInput(s.email),active,'fixture-reoptin-suppression');assert.equal(sent.length,0);});
+    assert.equal((await db.prepare('SELECT status FROM subscribers').first()).status,'suppressed');
+    assert.equal((await db.prepare('SELECT count(*) AS n FROM mail_quota').first()).n,0);
+  }
+});
+test('related old unsubscribe callbacks preserve fresh consent while current and uncorrelated opt-outs stop it',async(t)=>{
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-10-13T01:00:00.000Z')});
+  for(const phase of ['pending','confirmed']) for(const reference of ['provider','custom']) {
+    const db=database(),s=await pendingPublicFixture(db,`reoptin-callback-${phase}-${reference}`,'2026-10-14T01:00:00.000Z','delivered',{status:'unsubscribed'});
+    await db.prepare('UPDATE deliveries SET provider_id=? WHERE id=?').bind('fixture-old-optout-message',s.deliveryId).run();
+    await mockedMail(async sent=>{
+      await subscribe(db,publicInput(s.email),active,'fixture-reoptin-callback');if(phase==='confirmed') await confirmFromMail(db,sent[0]);
+      const before=await db.prepare('SELECT * FROM subscribers').first();
+      const oldReference=reference==='provider'?{'message-id':'fixture-old-optout-message'}:{'X-Mailin-custom':`delivery:${s.deliveryId}`};
+      await mailWebhook(db,{event:'unsubscribed',email:s.email,...oldReference});
+      assert.deepEqual(await db.prepare('SELECT * FROM subscribers').first(),before);
+      const current=await db.prepare('SELECT id FROM deliveries WHERE id<>?').bind(s.deliveryId).first();
+      await mailWebhook(db,{event:'unsubscribed',email:s.email,'X-Mailin-custom':`delivery:${current.id}`});
+      assert.equal((await db.prepare('SELECT status FROM subscribers').first()).status,'unsubscribed');assert.equal(sent.length,1);
+    });
+  }
+  for(const event of ['unsubscribed','hardBounce','spam','invalid_email']) {
+    const db=database(),s=await pendingPublicFixture(db,`reoptin-global-${event.toLowerCase()}`,'2026-10-14T01:00:00.000Z','delivered',{status:'unsubscribed'});
+    await mockedMail(async sent=>{
+      await subscribe(db,publicInput(s.email),active,'fixture-reoptin-global');
+      await mailWebhook(db,{event,email:s.email,...(event==='unsubscribed'?{}:{'X-Mailin-custom':`delivery:${s.deliveryId}`})});
+      assert.equal((await db.prepare('SELECT status FROM subscribers').first()).status,event==='unsubscribed'?'unsubscribed':'suppressed');assert.equal(sent.length,1);
+    });
+  }
+});
+test('a public re-opt-in epoch is newer than old delivery timestamps even within one millisecond or after clock correction',async(t)=>{
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-10-13T01:00:00.000Z')});
+  for(const ahead of [0,2000]) {
+    const db=database(),s=await pendingPublicFixture(db,`reoptin-clock-${ahead}`,'2026-10-14T01:00:00.000Z','delivered',{status:'unsubscribed'});
+    const oldDeliveryTime=new Date(Date.now()+ahead).toISOString();
+    await db.prepare('UPDATE deliveries SET created_at=? WHERE id=?').bind(oldDeliveryTime,s.deliveryId).run();
+    await mockedMail(async sent=>{
+      await subscribe(db,publicInput(s.email),active,'fixture-reoptin-clock');assert.equal(sent.length,1);
+      const current=await db.prepare('SELECT * FROM subscribers').first();
+      assert.equal(Date.parse(current.created_at),Date.parse(oldDeliveryTime)+1);
+      await mailWebhook(db,{event:'unsubscribed',email:s.email,'X-Mailin-custom':`delivery:${s.deliveryId}`});
+      assert.deepEqual(await db.prepare('SELECT * FROM subscribers').first(),current);
+      assert.equal((await confirmFromMail(db,sent[0])).status,'confirmed');
+    });
+  }
+});
 test('confirmation and weekly emails offer matching escaped HTML and plain-text original URLs in both languages',async()=>{
   for(const locale of ['zh','en']) {
     const db=database(),item=structuredClone(seed[0]);
@@ -323,8 +521,8 @@ test('confirmation and weekly emails offer matching escaped HTML and plain-text 
       await mailTest(db,{action:'weekly',runId:`copy-fallback-${locale}`},acceptance);
       assert.equal(sent.length,2);
       for(const [index,mail] of sent.entries()) {
-        const copied=[...mail.htmlContent.matchAll(/<span style="overflow-wrap:anywhere;word-break:break-all">([^<]+)<\/span>/g)].map(match=>decodeHtml(match[1]));
-        const textUrls=mail.textContent.split('\n').filter(line=>line.startsWith(`https://ag-ui.ai/${locale}/subscribe?`));
+        const copied=[...mail.htmlContent.matchAll(/>(https:\/\/ag-ui\.ai\/[^<]+\/subscribe\?[^<]+)</g)].map(match=>decodeHtml(match[1]));
+        const textUrls=mail.textContent.split('\n').filter(line=>line.startsWith(`https://ag-ui.ai/${locale}/subscribe?`)&&!new URL(line).hash);
         assert.equal(copied.length,index===0?2:1);assert.deepEqual(textUrls,copied);
         for(const url of copied) {
           const parsed=new URL(url);assert.equal(parsed.hostname,'ag-ui.ai');assert.equal(parsed.protocol,'https:');
@@ -332,8 +530,8 @@ test('confirmation and weekly emails offer matching escaped HTML and plain-text 
           assert.equal(mail.htmlContent.includes(url),false);
           assert.equal([...mail.htmlContent.matchAll(/href="([^"]+)"/g)].some(match=>decodeHtml(match[1])===url),true);
         }
-        assert.match(mail.htmlContent,locale==='zh'?/复制下面的网址文字/:/copy the URL text/);
-        assert.match(mail.textContent,locale==='zh'?/仍可能经过 Brevo 跟踪/:/may still pass through Brevo tracking/);
+        assert.match(mail.htmlContent,locale==='zh'?/复制此网址/:/copy this URL/);
+        assert.match(mail.textContent,locale==='zh'?/仍可能经 Brevo 跟踪/:/may still pass through Brevo tracking/);
       }
       assert.match(sent[1].htmlContent,/Fixture &lt;unsafe&gt; &amp; &quot;quoted&quot;/);
       assert.doesNotMatch(sent[1].htmlContent,/<script>|<unsafe>/);

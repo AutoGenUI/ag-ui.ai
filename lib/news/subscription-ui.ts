@@ -24,6 +24,9 @@ export type SubscriptionOutcome = {
   capacity?: SubscriptionCapacity;
   reason?: "unconfirmed" | "request";
 };
+export function visibleConfirmation(action: string | undefined, ready: boolean, visibility: string, prerendering?: boolean) {
+  return action === "confirm" && ready && visibility === "visible" && !prerendering;
+}
 function record(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value)
     ? value as Record<string, unknown> : null;
