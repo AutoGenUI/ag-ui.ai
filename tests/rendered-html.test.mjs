@@ -4,8 +4,8 @@ const base=process.env.SITE_TEST_BASE_URL||'http://localhost:4173';
 const render=(path,init={})=>fetch(new URL(path,base),{...init,redirect:'manual'});
 test('anonymous users cannot invoke owner mail acceptance and public signup remains closed',async()=>{
   const headers={origin:base,'content-type':'application/json'};
-  for(const action of ['status','confirmation','weekly','release']){
-    const args=action==='release'?{action,expectedRecipient:'test-only@example.test'}:{action,runId:'anonymous-test-run'};
+  for(const action of ['status','confirmation','weekly','release','diagnose']){
+    const args=['release','diagnose'].includes(action)?{action,expectedRecipient:'test-only@example.test'}:{action,runId:'anonymous-test-run'};
     const admin=await render('/api/admin',{method:'POST',headers,body:JSON.stringify({operation:'mail-test',arguments:args})});
     assert.equal(admin.status,403);
     const mcp=await render('/mcp',{method:'POST',headers,body:JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/call',params:{name:'newsroom_write',arguments:{operation:'mail-test',arguments:args}}})});

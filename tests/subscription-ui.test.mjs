@@ -47,6 +47,17 @@ test('signup receipt is not confirmation and disabled responses are explicit',()
   assert.equal(subscriptionOutcome('signup',503,{error:'Unavailable'}).kind,'error');
   assert.equal(subscriptionOutcome('signup',200,{status:'confirmed'}).kind,'error');
 });
+test('only a signup 429 with a valid ISO retry boundary explains throttling',()=>{
+  const retryAt='2099-01-01T09:00:00.000Z', body={status:'rate-limited',retryAt};
+  assert.deepEqual(subscriptionOutcome('signup',429,body),{kind:'rate-limited',retryAt});
+  for(const action of ['confirm','preferences','unsubscribe'])
+    assert.equal(subscriptionOutcome(action,429,body).kind,'error');
+  for(const status of [200,409,500])
+    assert.equal(subscriptionOutcome('signup',status,body).kind,'error');
+  for(const malformed of [undefined,null,0,[],{},'','tomorrow','2099-02-30T09:00:00.000Z','2099-01-01'])
+    assert.equal(subscriptionOutcome('signup',429,{...body,retryAt:malformed}).kind,'error');
+  assert.equal(subscriptionOutcome('signup',429,{...body,status:'check-inbox'}).kind,'error');
+});
 test('server reads must contain recognized status and usable saved preferences',()=>{
   assert.equal(parseSubscriberView(subscriber('unknown')),null);
   assert.equal(parseSubscriberView(subscriber('confirmed',{topics:'broken-json'})),null);

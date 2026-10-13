@@ -69,3 +69,10 @@ public engineering records with dated evidence, not live configuration.
 After an authorized iteration, update the public context with the relevant
 source revision, evidence time, validation and unresolved limitations. Recheck
 current state rather than treating a dated snapshot as a permanent fact.
+
+- Signup rate limits retain existing counts. HTTP 429 carries the next fixed
+  bucket retryAt, not rate_limits.expires_at; daily request buckets reset at
+  UTC midnight (08:00 Singapore). A denied attempt queues no new mail and must
+  not show the check-inbox notice. Owner mail-test diagnose is read-only and
+  exact-configured-target scoped, never part of editorial schedules. No private
+  identifiers or individual delivery records go into public documentation.

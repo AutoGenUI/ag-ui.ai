@@ -58,6 +58,8 @@ export async function mailCapacity(db: Database, c: MailConfig) {
 const capacityFull = async (db: Database, c: MailConfig) => ({
   status: "capacity-full" as const, aggregateCapacity: await mailCapacity(db, c),
 });
+const requestWindowEnd = (now: number, windowMs: number) =>
+  new Date((Math.floor(now / windowMs) + 1) * windowMs).toISOString();
 export function mailTestReady(c: MailConfig) {
   return (
     c.domainVerified === true &&
@@ -77,15 +79,17 @@ export async function subscribe(
   c: MailConfig,
   clientKey: string,
 ) {
-  if (!mailReady(c)) return { status: "pending-activation" };
+  if (!mailReady(c)) return { status: "pending-activation" as const };
   const input = subscriptionSchema.parse(body),
     email = input.email.trim().toLowerCase();
   if ((await mailCapacity(db, c)).full) return capacityFull(db, c);
-  if (
-    !(await rateLimit(db, `signup:${clientKey}`, 5)) ||
-    !(await rateLimit(db, `email:${await hmac(email, c.secret)}`, 2, 86400000))
-  )
-    return { status: "check-inbox" };
+  // Report the same fixed window that was checked, even if an awaited query
+  // crosses its boundary. A client throttle still short-circuits email counting.
+  const requestTime = Date.now();
+  if (!(await rateLimit(db, `signup:${clientKey}`, 5, 3600000, requestTime)))
+    return { status: "rate-limited" as const, retryAt: requestWindowEnd(requestTime, 3600000) };
+  if (!(await rateLimit(db, `email:${await hmac(email, c.secret)}`, 2, 86400000, requestTime)))
+    return { status: "rate-limited" as const, retryAt: requestWindowEnd(requestTime, 86400000) };
   const now = new Date().toISOString(),
     expires = new Date(Date.parse(now) + 86400000).toISOString(),
     candidate = `confirm:${crypto.randomUUID()}`;
@@ -136,9 +140,9 @@ export async function subscribe(
     .bind(email).first<{ status: string; is_test: number }>();
   if ((await mailCapacity(db, c)).full) return capacityFull(db, c);
   if (!subscriber || subscriber.is_test !== 0 || subscriber.status !== "pending")
-    return { status: "check-inbox" };
+    return { status: "check-inbox" as const };
   await drainQueue(db, c, 5);
-  return { status: "check-inbox" };
+  return { status: "check-inbox" as const };
 }
 export async function manageSubscription(
   db: Database,
@@ -266,7 +270,8 @@ export async function queueDigest(db: Database, week: string) {
 }
 // This entry point is exposed only by the existing owner-authenticated MCP and
 // admin operation dispatcher. Send actions cannot take an email address or
-// change gates. Release only verifies the configured recipient, never sends.
+// change gates. Release/diagnose only verify the configured recipient and never
+// send; diagnose is read-only and returns a bounded operational summary.
 export async function mailTest(
   db: Database,
   input: unknown,
@@ -280,12 +285,38 @@ export async function mailTest(
       topics: z.array(z.enum(categories)).min(1).max(6).default([...categories]),
     }).strict(),
     z.object({ action: z.literal("release"), expectedRecipient: z.string().email().max(254) }).strict(),
+    z.object({ action: z.literal("diagnose"), expectedRecipient: z.string().email().max(254) }).strict(),
   ]).parse(input);
   const ready = mailTestReady(c);
   const recipient = c.testRecipient?.trim().toLowerCase() || "";
-  if (a.action === "release" && (!z.string().email().safeParse(recipient).success ||
+  if ((a.action === "release" || a.action === "diagnose") && (!z.string().email().safeParse(recipient).success ||
     a.expectedRecipient.trim().toLowerCase() !== recipient))
-    throw new Error("Release requires expectedRecipient to match the server-configured test recipient");
+    throw new Error("This action requires expectedRecipient to match the server-configured test recipient");
+  if (a.action === "diagnose") {
+    const now = Date.now(), windowMs = 86400000,
+      windowEndsAt = requestWindowEnd(now, windowMs), day = singaporeDay(new Date(now));
+    const subscriber = await db.prepare("SELECT id,status,is_test,created_at FROM subscribers WHERE email=?")
+      .bind(recipient).first<Pick<Subscriber, "id" | "status" | "is_test" | "created_at">>();
+    const requestCount = c.secret ? Number((await db.prepare("SELECT count FROM rate_limits WHERE key=?")
+      .bind(`email:${await hmac(recipient, c.secret)}:${Math.floor(now / windowMs)}`)
+      .first<{ count: number }>())?.count || 0) : null;
+    const used = Number((await db.prepare("SELECT count FROM mail_quota WHERE day=?")
+      .bind(day).first<{ count: number }>())?.count || 0);
+    const limited = requestCount === null ? null : requestCount >= 2;
+    return {
+      status: "diagnosed",
+      recipientRole: subscriber ? subscriber.is_test === 1 ? "test" : "public" : null,
+      subscriberStatus: subscriber?.status || null,
+      emailRequestLimit: { count: requestCount, limit: 2, windowEndsAt, limited,
+        retryAt: limited ? windowEndsAt : null },
+      // Current public generation only; exclude historical test deliveries and
+      // omit mailbox, signatures, IDs, preferences and raw provider errors.
+      publicConfirmationDeliveries: subscriber ? (await db.prepare(
+        "SELECT status,created_at AS createdAt,updated_at AS updatedAt FROM deliveries WHERE subscriber_id=? AND is_test=0 AND kind='confirmation' AND created_at>=? ORDER BY created_at DESC,id DESC LIMIT 5",
+      ).bind(subscriber.id, subscriber.created_at).all<{ status: string; createdAt: string; updatedAt: string }>()).results : [],
+      dailySubmissionQuota: { day, used, limit: DAILY_EMAIL_LIMIT },
+    };
+  }
   let s = await db.prepare("SELECT * FROM subscribers WHERE email=?")
     .bind(recipient).first<Subscriber>();
   type Restart = { id: string; payload: string; created_at: string };

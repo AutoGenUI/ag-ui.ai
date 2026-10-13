@@ -376,7 +376,7 @@ test('public re-opt-in respects consent, capacity, rate limits and the confirmat
     if(reason==='quota') await db.prepare('INSERT INTO mail_quota(day,count) VALUES(?,300)').bind(singaporeDay()).run();
     await mockedMail(async sent=>{
       if(reason==='consent') await assert.rejects(()=>subscribe(db,publicInput(s.email,{consent:false}),active,'fixture-reoptin-gate'));
-      else {const result=await subscribe(db,publicInput(s.email),active,'fixture-reoptin-gate');assert.equal(result.status,reason.startsWith('capacity')?'capacity-full':'check-inbox');}
+      else {const result=await subscribe(db,publicInput(s.email),active,'fixture-reoptin-gate');assert.equal(result.status,reason.startsWith('capacity')?'capacity-full':reason==='rate'?'rate-limited':'check-inbox');}
       assert.equal(sent.length,0);
       const current=await db.prepare('SELECT * FROM subscribers WHERE id=?').bind(s.id).first();
       if(reason==='quota') {
@@ -554,6 +554,79 @@ async function retiredAcceptanceFixture(db,patch={}) {
   return s;
 }
 const releaseInput=()=>({action:'release',expectedRecipient:acceptance.testRecipient});
+test('pre-release signup attempts retain their limit and an explicit next-window signup can send normally',async(t)=>{
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-10-13T12:59:30.000Z')});
+  const db=database(),s=await retiredAcceptanceFixture(db),c={...acceptance,enabled:true};
+  await db.prepare('INSERT INTO mail_quota(day,count) VALUES(?,4)').bind(singaporeDay()).run();
+  await mockedMail(async sent=>{
+    for(let index=0;index<2;index++) assert.equal((await subscribe(db,publicInput(s.email),c,'fixture-before-release')).status,'check-inbox');
+    assert.equal(sent.length,0);
+    assert.equal((await mailTest(db,releaseInput(),c)).status,'released');
+    const before=await db.prepare('SELECT * FROM subscribers WHERE id=?').bind(s.id).first();
+    const result=await subscribe(db,publicInput(s.email),c,'fixture-after-release');
+    assert.deepEqual(result,{status:'rate-limited',retryAt:'2026-10-14T00:00:00.000Z'});
+    assert.deepEqual(await db.prepare('SELECT * FROM subscribers WHERE id=?').bind(s.id).first(),before);
+    assert.equal((await db.prepare('SELECT count(*) AS n FROM deliveries WHERE is_test=0').first()).n,0);
+    assert.equal((await db.prepare('SELECT count FROM mail_quota').first()).count,4);assert.equal(sent.length,0);
+    const diagnosis=await mailTest(db,{action:'diagnose',expectedRecipient:s.email},c);
+    assert.equal(diagnosis.recipientRole,'public');assert.equal(diagnosis.subscriberStatus,'unsubscribed');
+    assert.deepEqual(diagnosis.emailRequestLimit,{count:2,limit:2,limited:true,windowEndsAt:result.retryAt,retryAt:result.retryAt});
+    assert.deepEqual(diagnosis.publicConfirmationDeliveries,[]);
+    t.mock.timers.tick(Date.parse(result.retryAt)-Date.now());
+    assert.equal((await mailTest(db,{action:'diagnose',expectedRecipient:s.email},c)).emailRequestLimit.count,0);
+    assert.equal((await subscribe(db,publicInput(s.email),c,'fixture-next-window')).status,'check-inbox');
+    assert.equal(sent.length,1);assert.equal((await confirmFromMail(db,sent[0])).status,'confirmed');
+    assert.equal((await db.prepare('SELECT count FROM mail_quota WHERE day=?').bind('2026-10-13').first()).count,4);
+    assert.equal((await db.prepare('SELECT count FROM mail_quota WHERE day=?').bind('2026-10-14').first()).count,1);
+  });
+});
+test('client throttle preserves short-circuit counting and reports the checked hour across a clock boundary',async(t)=>{
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-10-13T12:59:59.999Z')});
+  const db=database(),now=Date.now(),client='fixture-client-throttle';
+  await db.prepare('INSERT INTO rate_limits(key,count,expires_at) VALUES(?,5,?)').bind(`signup:${client}:${Math.floor(now/3600000)}`,now+3600000).run();
+  const prepare=db.prepare;let crossed=false;
+  db.prepare=sql=>{const statement=prepare(sql),first=statement.first;
+    if(sql.startsWith('INSERT INTO rate_limits')) statement.first=async()=>{const result=await first.call(statement);if(!crossed){crossed=true;t.mock.timers.tick(2);}return result;};
+    return statement;
+  };
+  await mockedMail(async sent=>{
+    assert.deepEqual(await subscribe(db,publicInput('fixture-throttle@example.test'),active,client),{status:'rate-limited',retryAt:'2026-10-13T13:00:00.000Z'});
+    assert.equal((await db.prepare("SELECT count(*) AS n FROM rate_limits WHERE substr(key,1,6)='email:'").first()).n,0);
+    assert.equal((await db.prepare('SELECT count FROM rate_limits').first()).count,5);assert.equal(sent.length,0);
+    assert.equal((await subscribe(db,publicInput('fixture-throttle@example.test'),active,client)).status,'check-inbox');assert.equal(sent.length,1);
+  });
+});
+test('owner diagnostic is read-only, bounded to the configured target and omits private delivery details',async(t)=>{
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-10-13T12:30:00.000Z')});
+  const db=database(),c={...acceptance,enabled:true},s=await retiredAcceptanceFixture(db,{is_test:0});
+  for(let index=0;index<6;index++) await db.prepare("INSERT INTO deliveries(id,subscriber_id,kind,status,provider_id,error,created_at,updated_at,is_test) VALUES(?,?,'confirmation','failed','sensitive-provider-id','sensitive-raw-error',?,?,0)")
+    .bind(`fixture-diagnosis-public-${index}`,s.id,new Date(Date.now()+index).toISOString(),new Date(Date.now()+index).toISOString()).run();
+  await db.prepare("INSERT INTO deliveries(id,subscriber_id,kind,status,created_at,updated_at,is_test) VALUES('fixture-diagnosis-old',?,'confirmation','uncertain','2000-01-01T00:00:00.000Z','2000-01-01T00:00:00.000Z',0)").bind(s.id).run();
+  await db.prepare('INSERT INTO mail_quota(day,count) VALUES(?,4)').bind(singaporeDay()).run();
+  const snapshot=async()=>Promise.all(['subscribers','deliveries','editions','rate_limits','mail_quota'].map(async table=>(await db.prepare(`SELECT * FROM ${table}`).all()).results));
+  const before=await snapshot();
+  await mockedMail(async sent=>{
+    const result=await operate(db,'mail-test',{action:'diagnose',expectedRecipient:s.email.toUpperCase()},c);
+    assert.equal(result.status,'diagnosed');assert.equal(result.recipientRole,'public');assert.equal(result.subscriberStatus,'unsubscribed');
+    assert.deepEqual(result.emailRequestLimit,{count:0,limit:2,limited:false,windowEndsAt:'2026-10-14T00:00:00.000Z',retryAt:null});
+    assert.deepEqual(result.dailySubmissionQuota,{day:'2026-10-13',used:4,limit:300});
+    assert.equal(result.publicConfirmationDeliveries.length,5);
+    for(const row of result.publicConfirmationDeliveries){assert.deepEqual(Object.keys(row).sort(),['createdAt','status','updatedAt']);assert.equal(row.status,'failed');}
+    const json=JSON.stringify(result);for(const value of [s.email,s.id,'sensitive-provider-id','sensitive-raw-error','fixture-diagnosis','token','preferences','provider_id'])assert.ok(!json.includes(value),value);
+    assert.equal((await mailTest(db,{action:'status'},c)).subscriberStatus,null);
+    const unavailable=await mailTest(db,{action:'diagnose',expectedRecipient:s.email},{...c,secret:''});
+    assert.equal(unavailable.emailRequestLimit.count,null);assert.equal(unavailable.emailRequestLimit.limited,null);assert.equal(unavailable.emailRequestLimit.retryAt,null);
+    assert.deepEqual(await snapshot(),before);assert.equal(sent.length,0);
+    let accessed=false;const inaccessible={prepare(){accessed=true;throw new Error('Database must not be reached');}};
+    for(const input of [{action:'diagnose',expectedRecipient:'outsider@example.test'},{action:'diagnose'},{action:'diagnose',expectedRecipient:s.email,runId:'not-allowed'},{action:'diagnose',expectedRecipient:s.email,email:s.email}])
+      await assert.rejects(()=>mailTest(inaccessible,input,c));
+    await assert.rejects(()=>mailTest(inaccessible,{action:'diagnose',expectedRecipient:s.email},{...c,testRecipient:''}));
+    assert.equal(accessed,false);
+    const empty=database(),missing=await mailTest(empty,{action:'diagnose',expectedRecipient:s.email},c);
+    assert.equal(missing.recipientRole,null);assert.equal(missing.subscriberStatus,null);assert.deepEqual(missing.publicConfirmationDeliveries,[]);
+    assert.equal((await empty.prepare('SELECT count(*) AS n FROM subscribers').first()).n,0);
+  });
+});
 test('owner release sends nothing, preserves test history and quota, and requires ordinary public confirmation',async(t)=>{
   t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-10-13T01:00:00.000Z')});
   const db=database();await seedDatabase(db);
@@ -961,6 +1034,7 @@ test('webhook HTTP route accepts the configured Bearer and rejects other credent
     t.skip('This isolated Cloudflare-binding fixture requires node:module.registerHooks (Node 22.15+).');
     return;
   }
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-10-13T12:30:00.000Z')});
   const db=database(),fixture=await webhookFixture(db,'http-callback',1);
   const state={db,secret:'fixture-only-not-a-production-webhook-secret',reads:0,databaseCalls:0};
   globalThis.__agUiWebhookRuntimeFixture=state;
@@ -1001,15 +1075,30 @@ test('webhook HTTP route accepts the configured Bearer and rejects other credent
     assert.equal(admin.status,403);assert.equal(state.databaseCalls,1);
     const mcp=await newsApi(new Request('https://fixture.example.test/mcp',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/call',params:{name:'newsroom_write',arguments:JSON.parse(restartBody)}})}));
     assert.equal(mcp.status,403);assert.equal(state.databaseCalls,1);
-    const releaseBody={operation:'mail-test',arguments:releaseInput()};
-    const anonymousRelease=await newsApi(new Request('https://fixture.example.test/api/admin',{method:'POST',headers:{origin:'https://fixture.example.test','content-type':'application/json'},body:JSON.stringify(releaseBody)}));
-    assert.equal(anonymousRelease.status,403);assert.equal(state.databaseCalls,1);
-    const anonymousReleaseMcp=await newsApi(new Request('https://fixture.example.test/mcp',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:2,method:'tools/call',params:{name:'newsroom_write',arguments:releaseBody}})}));
-    assert.equal(anonymousReleaseMcp.status,403);assert.equal(state.databaseCalls,1);
+    for(const action of ['release','diagnose']) {
+      const scopedBody={operation:'mail-test',arguments:{...releaseInput(),action}};
+      const anonymousScoped=await newsApi(new Request('https://fixture.example.test/api/admin',{method:'POST',headers:{origin:'https://fixture.example.test','content-type':'application/json'},body:JSON.stringify(scopedBody)}));
+      assert.equal(anonymousScoped.status,403);assert.equal(state.databaseCalls,1);
+      const anonymousScopedMcp=await newsApi(new Request('https://fixture.example.test/mcp',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:2,method:'tools/call',params:{name:'newsroom_write',arguments:scopedBody}})}));
+      assert.equal(anonymousScopedMcp.status,403);assert.equal(state.databaseCalls,1);
+    }
     state.settings={EMAIL_ENABLED:'true',BREVO_DOMAIN_VERIFIED:'true',EMAIL_ACCEPTANCE_PASSED:'true',BREVO_API_KEY:active.apiKey,BREVO_SENDER_EMAIL:active.sender,SUBSCRIPTION_SECRET:active.secret};
     state.secret='fixture-only-not-a-production-webhook-secret';state.allowOrigin=true;
-    const formal=await capacityFixture(db,250,0,'http-capacity');
     const publicRequest=(path,body)=>new Request(`https://fixture.example.test${path}`,{method:'POST',headers:{origin:'https://fixture.example.test','content-type':'application/json'},body:JSON.stringify(body)});
+    await mockedMail(async sent=>{
+      const email='fixture-http-throttle@example.test',dayBucket=Math.floor(Date.now()/86400000);
+      await db.prepare('INSERT INTO rate_limits(key,count,expires_at) VALUES(?,2,?)').bind(`email:${await hmac(email,active.secret)}:${dayBucket}`,Date.now()+86400000).run();
+      const response=await newsApi(publicRequest('/api/subscription',publicInput(email)));
+      assert.equal(response.status,429);assert.equal(response.headers.get('Retry-After'),'41400');
+      assert.deepEqual(await response.json(),{status:'rate-limited',retryAt:'2026-10-14T00:00:00.000Z'});
+      assert.equal(await db.prepare('SELECT id FROM subscribers WHERE email=?').bind(email).first(),null);
+      const clientKey=await hmac('unknown',active.secret);
+      await db.prepare('UPDATE rate_limits SET count=5 WHERE key=?').bind(`signup:${clientKey}:${Math.floor(Date.now()/3600000)}`).run();
+      const clientResponse=await newsApi(publicRequest('/api/subscription',publicInput('fixture-http-client-only@example.test')));
+      assert.equal(clientResponse.status,429);assert.equal(clientResponse.headers.get('Retry-After'),'1800');
+      assert.deepEqual(await clientResponse.json(),{status:'rate-limited',retryAt:'2026-10-13T13:00:00.000Z'});assert.equal(sent.length,0);
+    });
+    const formal=await capacityFixture(db,250,0,'http-capacity');
     const publicStatus=await newsApi(new Request('https://fixture.example.test/api/subscription/status'));
     assert.equal(publicStatus.status,200);
     const aggregate=await publicStatus.json();

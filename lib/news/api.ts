@@ -48,7 +48,7 @@ const toolList = [
   {
     name: "newsroom_write",
     description:
-      "Owner: maintain verified bilingual news and trends, source discovery/check status, run checkpoints and weekly delivery queue. Read https://ag-ui.ai/automation.md for the operation contract. Publish requires article, reason and verification {sourceRead,dateConfirmed,conflicts}; mergeInto folds multiple sources into one event. mail-test is only for explicitly authorized owner acceptance: {action:status|restart|confirmation|weekly,runId?:stable-id,locale?:zh|en,topics?:categories}; sending always uses the server-configured recipient and rejects address arguments. restart sends no mail and requires public email disabled, an unsubscribed test recipient, no uncertain submission, and a new runId. Explicit owner-authorized {action:release,expectedRecipient:email} sends no mail, requires an exact normalized match to EMAIL_TEST_RECIPIENT, releases only its existing test role into public unsubscribed state with rotated signed links, and preserves test delivery history and quota. Suppression or unresolved submission blocks release; ordinary public signup and new mailbox confirmation are still required. release is idempotent for an existing public role and cannot change sending targets. Never use mail-test in scheduled editorial tasks.",
+      "Owner: maintain verified bilingual news and trends, source discovery/check status, run checkpoints and weekly delivery queue. Read https://ag-ui.ai/automation.md for the operation contract. Publish requires article, reason and verification {sourceRead,dateConfirmed,conflicts}; mergeInto folds multiple sources into one event. mail-test is only for explicitly authorized owner acceptance: {action:status|restart|confirmation|weekly,runId?:stable-id,locale?:zh|en,topics?:categories}; sending always uses the server-configured recipient and rejects address arguments. restart sends no mail and requires public email disabled, an unsubscribed test recipient, no uncertain submission, and a new runId. Explicit owner-authorized {action:release,expectedRecipient:email} sends no mail, requires an exact normalized match to EMAIL_TEST_RECIPIENT, releases only its existing test role into public unsubscribed state with rotated signed links, and preserves test delivery history and quota. Suppression or unresolved submission blocks release; ordinary public signup and new mailbox confirmation are still required. release is idempotent for an existing public role and cannot change sending targets. Explicit owner-authorized {action:diagnose,expectedRecipient:email} uses the same exact configured-target check and is read-only: reports role, subscriber state, fixed email request window, up to five current public confirmation delivery summaries, and site daily submission count. It never sends, mutates, returns email/signature/identifier/raw-error data, or diagnoses arbitrary recipients. Never use mail-test in scheduled editorial tasks.",
     inputSchema: {
       type: "object",
       properties: {
@@ -257,6 +257,10 @@ export async function newsApi(request: Request): Promise<Response | null> {
           mailConfig(),
           key,
         );
+      if (result.status === "rate-limited")
+        return json(result, 429, {
+          "Retry-After": String(Math.max(1, Math.ceil((Date.parse(result.retryAt) - Date.now()) / 1000))),
+        });
       return json(result, result.status === "capacity-full" ? 409 : 200);
     }
     if (path === "/api/subscription/manage") {
