@@ -13,17 +13,17 @@
     "documentsAndCodeIntegrityVerified": true
   },
   "production": {
-    "evidence": "Formal v1.0.0 publication receipts, Sites metadata/source and read-only public checks on 2026-10-13; private environment values and subscriber rows were not read",
+    "evidence": "Sites v14 deployment/source and public read-only HTTP checks on 2026-10-13; private environment and subscriber rows not read",
     "url": "https://ag-ui.ai",
     "platformUrl": "https://ag-ui-ai.channely.chatgpt.site",
     "projectId": "appgprj_6a5dcacfcbb4819193bac2b2104ed926",
-    "publishedVersion": 13,
-    "versionId": "appgprj_6a5dcacfcbb4819193bac2b2104ed926~appgver_e5bc604caacc819184c81bd223d5c9ee",
-    "deploymentId": "appgdep_6ace04b15f408191ad18bdcbbe4be3d3",
+    "publishedVersion": 14,
+    "versionId": "appgprj_6a5dcacfcbb4819193bac2b2104ed926~appgver_c60692fd0b988191b251e97a8b7b285e",
+    "deploymentId": "appgdep_6ace173e29688191b6636567e98e443d",
     "deploymentStatus": "succeeded",
-    "deploymentCompletedAt": "2026-10-13T10:15:25.780042+00:00",
-    "sourceCommit": "8512d230c7df3bece70c503af02ff2acce0dbe9d",
-    "sourceTree": "661f59e806ce2174a33d6d87b9b44d0959400554",
+    "deploymentCompletedAt": "2026-10-13T11:34:36.106757+00:00",
+    "sourceCommit": "32af985205988054ac77619828f0d5ab0112eee0",
+    "sourceTree": "545ab7adf8b2a8f5040ba1c8f8d51f4cdcdebd2b",
     "githubReleaseCommit": "71ff116e033f0295a44415d13acd92bf1c0b97b6",
     "environmentSetRevision": 12,
     "hasMcp": true,
@@ -38,25 +38,26 @@
     },
     "existingSchedulesPreserved": true,
     "automationCountAtObservation": 2,
-    "observedOn": "2026-10-13"
+    "observedOn": "2026-10-13",
+    "githubIterationCommit": "ce64f39c158e72e06549cde97c6810c77a2ff5d8"
   },
   "github": {
     "observedOn": "2026-10-13",
     "repository": "AutoGenUI/ag-ui.ai",
     "defaultBranch": "main",
-    "mainAtObservation": "71ff116e033f0295a44415d13acd92bf1c0b97b6",
-    "evidence": "Formal release publication receipts; later documentation commits are not part of the immutable release tag",
+    "mainAtObservation": "ce64f39c158e72e06549cde97c6810c77a2ff5d8",
+    "evidence": "Subscription polish PR7 and main verify succeeded; separate documentation receipt may follow without redeployment",
     "syncBranch": null,
-    "pullRequest": "https://github.com/AutoGenUI/ag-ui.ai/pull/5",
+    "pullRequest": "https://github.com/AutoGenUI/ag-ui.ai/pull/7",
     "draftAtObservation": false,
     "mergedAtObservation": true,
-    "mergedAt": "2026-10-13T10:13:52Z",
-    "validatedPullRequestHead": "04c99295995993c93c0cb3596a55f049369601f7",
-    "validatedTree": "661f59e806ce2174a33d6d87b9b44d0959400554",
+    "mergedAt": "2026-10-13T11:32:18Z",
+    "validatedPullRequestHead": "96e7930fc0bcef8ba5c11517440031d01099b430",
+    "validatedTree": "545ab7adf8b2a8f5040ba1c8f8d51f4cdcdebd2b",
     "requiredCheck": "verify",
     "branchProtectionPreserved": true,
     "branchPolicy": "Keep only main after completed iterations; temporary PR branches allowed and cleaned after verified merge",
-    "documentationFollowup": "Public receipt updates use a temporary PR branch; no new Sites deployment and no movement of v1.0.0 tag",
+    "documentationFollowup": "Public v14 receipt via protected temporary PR; no further Sites deployment and no movement of v1.0.0 tag",
     "recoverablePreCleanupBundleVerified": true,
     "protectedManagedWorktreeRetained": true
   },
@@ -273,7 +274,7 @@
     "Observe real queued cancellation and additional bounce scenarios only under authorized acceptance",
     "Before authorized production maintenance, refresh account permissions, full DNS/DKIM inventory, actual Sites deployment, D1 migration ledger and backup/restore capability, schedules and provider allowance"
   ],
-  "refreshRule": "Before the next iteration read live GitHub state and docs/operations/README.md. The completed v1.0.0 release receipt is dated evidence, not live configuration. GitHub merge does not deploy Sites. Preserve immutable release tag and keep private operational data outside this repository.",
+  "refreshRule": "Read current GitHub and operations/README.md before maintenance. Subscription polish v14 is dated evidence; docs-only receipts may follow deployed source. GitHub merge does not deploy Sites. Preserve immutable v1.0.0 tag and keep private operational data outside repository.",
   "operationsHandoff": {
     "scope": "Public maintenance documentation; not production account inspection or deployment",
     "index": "docs/operations/README.md",
@@ -520,7 +521,7 @@
   },
   "subscriptionPolish": {
     "recordedOn": "2026-10-13",
-    "phase": "local-verification-complete-awaiting-required-CI-and-Sites-publication",
+    "phase": "published",
     "baseMain": "c67f707b9e6c7f9e9b297dbde72757a1b545ecc9",
     "notes": "docs/iterations/2026-10-13-subscription-polish.md",
     "behavior": [
@@ -572,7 +573,8 @@
           "Form before signup feedback; no return-to-form button"
         ],
         "consoleErrors": 0
-      }
+      },
+      "links": "passed in PR and main required verify"
     },
     "schemaChanged": false,
     "productionSecretsRead": false,
@@ -580,6 +582,70 @@
     "realMailSent": false,
     "productionConfigurationChanges": false,
     "newReleaseTagCreated": false,
-    "immutableReleaseTag": "v1.0.0"
+    "immutableReleaseTag": "v1.0.0",
+    "githubCommit": "ce64f39c158e72e06549cde97c6810c77a2ff5d8",
+    "githubTree": "545ab7adf8b2a8f5040ba1c8f8d51f4cdcdebd2b",
+    "pullRequest": "https://github.com/AutoGenUI/ag-ui.ai/pull/7",
+    "requiredVerify": {
+      "status": "passed",
+      "url": "https://github.com/AutoGenUI/ag-ui.ai/actions/runs/38390726523/job/115273567567"
+    },
+    "mainVerify": {
+      "status": "passed",
+      "url": "https://github.com/AutoGenUI/ag-ui.ai/actions/runs/38390910990/job/115274178851"
+    },
+    "sites": {
+      "version": 14,
+      "versionId": "appgprj_6a5dcacfcbb4819193bac2b2104ed926~appgver_c60692fd0b988191b251e97a8b7b285e",
+      "sourceCommit": "32af985205988054ac77619828f0d5ab0112eee0",
+      "treeMatchesGithub": true,
+      "deploymentId": "appgdep_6ace173e29688191b6636567e98e443d",
+      "status": "succeeded",
+      "completedAt": "2026-10-13T11:34:36.106757+00:00",
+      "environmentRevision": 12,
+      "hasMcp": true,
+      "automationCount": 2
+    },
+    "publicHttp": [
+      {
+        "path": "/zh/subscribe",
+        "http": 200
+      },
+      {
+        "path": "/en/subscribe",
+        "http": 200
+      },
+      {
+        "path": "/zh/feed.xml",
+        "http": 200
+      },
+      {
+        "path": "/en/feed.xml",
+        "http": 200
+      },
+      {
+        "path": "/feed.xml",
+        "http": 200
+      },
+      {
+        "path": "/api/subscription/status",
+        "http": 200,
+        "publicAggregate": {
+          "enabled": true,
+          "confirmedCount": 1,
+          "capacity": 250,
+          "remaining": 249,
+          "full": false,
+          "dailyLimit": 300,
+          "weeklyLimit": 250
+        }
+      },
+      {
+        "path": "/api/admin",
+        "http": 403
+      }
+    ],
+    "productionBrowser": "Agent in-app browser rejected both custom and platform domain navigation; no production DOM acceptance claimed. Synthetic local browser acceptance passed.",
+    "immutableReleaseTagVerified": true
   }
 }

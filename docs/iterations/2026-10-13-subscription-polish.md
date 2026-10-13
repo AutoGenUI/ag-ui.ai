@@ -1,6 +1,6 @@
-# 2026-10-13 订阅交互与邮件排版候选
+# 2026-10-13 订阅交互与邮件排版发布
 
-本文记录 [v1.0.0 正式发布](../releases/v1.0.0.md) 之后的本地候选迭代。新的 Sites 发布尚未发生，不预写下一平台版本序号、提交 SHA 或部署成功；`v1.0.0` tag/回执保留为历史且不移动。最新工程证据与最终发布映射由 [PROJECT_CONTEXT.md](../PROJECT_CONTEXT.md) 和 [CURRENT_STATE.json](../CURRENT_STATE.json) 记录。本页不含私有邮箱、签名链接、订阅行或秘密值。
+本文记录 [v1.0.0 正式发布](../releases/v1.0.0.md) 之后的订阅迭代，Sites 平台 v14 已部署成功；`v1.0.0` tag/回执保留为历史且不移动。最新工程证据与最终发布映射由 [PROJECT_CONTEXT.md](../PROJECT_CONTEXT.md) 和 [CURRENT_STATE.json](../CURRENT_STATE.json) 记录。本页不含私有邮箱、签名链接、订阅行或秘密值。
 
 ## 交互与自动确认
 
@@ -35,12 +35,14 @@ suppressed、测试身份、历史硬失败和任意 sending/uncertain 不因公
 | 隔离本地浏览器：过期确认 | 合成过期链接落地自动提交后显示“未能核验操作结果”与“重试确认”，不误报成功；公众 `0/250` 不变 |
 | 隔离本地浏览器：pending 取消 | 管理 URL 的 `#unsubscribe` 仅显示尚未确认及下方取消申请；明确点击后显示已退订，公众 `0/250` 不变 |
 | 本地控制台与视觉复核 | 测试确认、周报管理和过期页控制台错误均为 0；390px 确认邮件层次清晰、无横向溢出；桌面申请反馈截图中表单在反馈上方、无返回按钮 |
-| 最新候选 required CI、PR 合并与 Sites 发布 | 本页未记录完成；需独立终态及源码映射 |
+| required CI、PR 合并与 Sites 发布 | PR #7 与合并后 main verify 全通过；Sites v14 部署成功，源码树一致。完整 ID、SHA 与检查链接见 PROJECT_CONTEXT/CURRENT_STATE |
 
-上述为本地候选证据，不证明真实确认邮件、周报、退信/投诉回调或 inbox 展示。本轮没有读取秘密或生产订阅行、发送新增真实邮件、变更 schema、DNS、生产邮件开关或定时任务，也没有新增付费调用。网络、提供商跟踪与真实投递的未核验范围继续保留，不凭页面 200 扩大结论。
+上述本地验收证据，不证明真实确认邮件、周报、退信/投诉回调或 inbox 展示。本轮没有读取秘密或生产订阅行、发送新增真实邮件、变更 schema、DNS、生产邮件开关或定时任务，也没有新增付费调用。网络、提供商跟踪与真实投递的未核验范围继续保留，不凭页面 200 扩大结论。
 
 ## 来源与维护入口
 
 [Brevo 双重确认官方文章 JSON](https://help.brevo.com/api/v2/help_center/en-us/articles/208771869.json) 描述邮件链接确认与可选重定向；没有要求额外网页按钮。[Brevo 邮件机器人官方文章 JSON](https://help.brevo.com/api/v2/help_center/en-us/articles/4406537065618.json) 说明安全软件会点链接并模拟用户，存在意外动作风险。它们是同 ID 官方帮助正文的机器入口，避免把 HTML 帮助页面 403 当成文章不存在；本轮公开读取两个 JSON 均 HTTP 200。
 
 接手参见 [邮件维护](../operations/email-subscriptions.md)、[owner 管理](../operations/owner-management.md)、[部署维护](../operations/deployment-maintenance.md) 和 [采编合同](../../public/automation.md)。采编任务不得访问真实签名链接来代替读者确认、退订或发起 `mail-test`，不得重置生产订阅/投递记录。
+
+生产只读 HTTP 的中英订阅页、三项 RSS 与状态接口通过，匿名管理 403，公开人数 1、余位 249。代理浏览器对两个生产域名阻止导航，没有生产 DOM 验收结论。Sites env revision 12、public、active、MCP 和原 2 项任务保留；来源历史 v1.0.0 标签未移动。后续公开回执是文档提交，不再次部署。
