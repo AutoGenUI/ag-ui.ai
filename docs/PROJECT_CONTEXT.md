@@ -2,13 +2,30 @@
 
 本说明用于在同一个项目中持续迭代。它仅保留可公开的工程事实，未复制私人运营审计、账户、验收邮箱、生产数据或秘密值。机器可读记录见 [CURRENT_STATE.json](CURRENT_STATE.json)。
 
-## v1.0.0 发布接续
+## v1.0.0 正式发布与接续
 
-2026-10-13 用户报告已在邮件落地页主动确认，新邮箱正式人数显示 1。本轮修复最后一步可见性、邮件两步说明、签名页语言切换与回到原页刷新，并以隔离 D1/合成身份完成 95 项测试及手机/桌面浏览器验收。发布候选从 main `f670b23d32e6de1e4497f46113ef277fc3fc97cc`（维护 PR #4 已合并）继续，尚需 required CI、正常 PR 合并及 Sites 终态成功。
+2026-10-13 已完成订阅体验修复并正式发布 [v1.0.0](https://github.com/AutoGenUI/ag-ui.ai/releases/tag/v1.0.0)。[PR #5](https://github.com/AutoGenUI/ag-ui.ai/pull/5) 于 10:13:52 UTC 正常 rebase 合入 main；release commit 为 `71ff116e033f0295a44415d13acd92bf1c0b97b6`，tree 为 `661f59e806ce2174a33d6d87b9b44d0959400554`。[PR required verify](https://github.com/AutoGenUI/ag-ui.ai/actions/runs/38381641758/job/115243248665) 和 [main verify](https://github.com/AutoGenUI/ag-ui.ai/actions/runs/38381929658/job/115244227252) 均通过，主分支保护保留。
 
-[版本说明](releases/v1.0.0.md) 规定最终凭据：GitHub 的带注释 `v1.0.0` tag/Release 与实际 Sites deployment。文档为时间快照，不能将候选版本号解释为已上线。旧章节中的“本轮”“尚未部署”描述此前 GitHub 同步/维护阶段；本次用户已授权正式发布，生产秘密、DNS、现有邮件开关/任务均保留，不额外发送验收邮件。Sites 元数据已重新核对生产仍为数字版本 12，源码 `6027589c…`；没有读取私有环境值。
+带注释 tag `v1.0.0` 已推送远端，tag 对象 `55ef990ca2a893c5d72e0a67806c2743cc832e6a` 解析到上述 release commit。GitHub Release 于 10:18:34 UTC 正式发布，非 draft、非 prerelease。收尾文档仍走临时 PR；它们不移动此标签，也不追加一次 Sites 代码部署。
 
-## 证据时间与状态区分
+| 正式发布凭据 | 已核验的公开记录 |
+| --- | --- |
+| Sites 项目 | 原项目 `appgprj_6a5dcacfcbb4819193bac2b2104ed926`，active、public、`has_mcp=true`，保留自定义域名 [ag-ui.ai](https://ag-ui.ai) 与平台地址 [ag-ui-ai.channely.chatgpt.site](https://ag-ui-ai.channely.chatgpt.site) |
+| Sites 数字版本序号 / version_id | `13` / `appgprj_6a5dcacfcbb4819193bac2b2104ed926~appgver_e5bc604caacc819184c81bd223d5c9ee`；序号和 opaque ID 为不同字段 |
+| Sites 源码 | `8512d230c7df3bece70c503af02ff2acce0dbe9d`，tree 与 GitHub release 完全相同；两个 Git 历史的 commit SHA 不要求相同 |
+| 部署终态 | `appgdep_6ace04b15f408191ad18bdcbbe4be3d3`，succeeded，2026-10-13 10:15:25.780042 UTC |
+| 配置保留 | `env_set_revision=12` 原样保留；无 schema 迁移、DNS、邮件开关或任务修改；Sites 元数据仍有 2 项任务，但不代表每轮任务已成功 |
+| 工程验证 | 隔离本地 D1/关闭邮件，35 基础 + 42 新闻邮件 + 10 订阅 UI + 8 HTTP，共 95 项通过；TypeScript、内容、lint、构建、链接与 required CI 通过；8 moderate、0 high、0 critical，既有门槛保留 |
+| 发布构建体积 | JS 919625 / gzip 267506，CSS 115604 / gzip 22853 字节；原预算不变，JS 原始体积余量 375 字节 |
+| 本地浏览器 | 中英双语、390×844 / 1440×900 视口；确认、语言链接、偏好、退订和公开容量刷新。焦点刷新使用临时 CDP 模拟且已还原，不是第二台物理设备实测 |
+| 生产只读检查 | 中英订阅页与三个 RSS 入口 HTTP 200；匿名管理 API 403；公开状态 enabled、confirmed 1、remaining 249；中文生产 DOM 显示 1/249 和第一方统计，0 控制台错误 |
+| 英文生产浏览器边界 | 英文 HTTP/RSS 已通过；后续浏览器连接超时，未追加英文生产 DOM 断言。该超时不能记录为网站故障 |
+
+本次修复突出邮件落地页的最后一步主动确认、明确邮件两步说明，并保留签名页语言切换与回到原页刷新。发布前用户报告新邮箱已主动确认、公众人数为 1；此真实成功案例只归因用户报告，不扩大为本地验收的跨物理设备证据。没有读取秘密或订阅行，也没有新增真实邮件或付费调用。当前配置出口访问为 200、直连出口仍为 403，不承诺全网络或中国大陆可达。
+
+完整 [版本回执](releases/v1.0.0.md) 与机器状态的 `release` 保存最终映射。生产 v12、73/90 项旧验证和发布候选在下文及 JSON 中保留为历史；旧段落的“本轮”“尚未部署”只描述此前 GitHub 同步/维护阶段，不能覆盖本节正式发布状态。下一轮重新核对实时状态和授权，不将本说明当作配置值。
+
+## 历史交接：证据时间与状态区分
 
 - **生产交接快照**：2026-10-13 05:26:10 UTC（新加坡时间 13:26:10），来自交接版本 28。本轮读取了经过校验的上下文文件，没有重新读取生产环境或邮件账户。
 - **GitHub 合并与分支核验**：PR #3 于 2026-10-13 09:03:38 UTC 正常 rebase 合并，PR head 与 main 的 required `verify` 均通过。09:18 UTC 完成分支清理；维护文档更新前重新查询远端，仅 main 指向 `24edc498f5c135e283d773d946fcab3e99d239bd`。
@@ -70,7 +87,7 @@
 
 同步及修复使用独立 worktree，并保存可恢复 Git 快照。首次同步时原 main 为 `525ec78904ab7e2b97717adc7ac13bfd3f5f3db0`，完整 v12 导入无冲突。之后按用户授权，将原 main 的四项补丁与合并历史逐项核对为等价内容，原 checkout main 已安全同步到 `24edc498…`，没有丢弃本地工作；原依赖目录未覆盖。分支清理前另存完整 bundle，核对同步分支 tree、range-diff 与另一个分支的补丁等价后删除已合并分支。受保护的同步 worktree 保留为 detached checkout；后续文档任务复用它创建临时 PR 分支。
 
-首次同步在正式源码之外追加 CI 和公开文档。CI 增加 TypeScript、新闻/邮件、订阅 UI 测试，以及隔离本地 D1/Worker 的初始化、ready 等待与清理；保留全部原检查和阈值。本轮依赖及构建修复是生产 v12 之后的 GitHub 分支迭代，尚未部署到 Sites。
+首次同步在正式源码之外追加 CI 和公开文档。CI 增加 TypeScript、新闻/邮件、订阅 UI 测试，以及隔离本地 D1/Worker 的初始化、ready 等待与清理；保留全部原检查和阈值。该同步阶段的依赖及构建修复是生产 v12 之后的 GitHub 分支迭代，当时尚未部署到 Sites，随后随本节前述 v1.0.0 正式发布。
 
 下列代码检查对应 `b0f0a407…` 基线，结果来自本对话此前执行与留存的核验记录，不表示本次文档更新重新运行了全部套件：
 
@@ -83,9 +100,9 @@
 | 体积预算 | 失败；Node 24 构建 JS 934566 / gzip 275319 字节，CSS 132412 / gzip 24990 字节，均超过既有预算 |
 | GitHub required `verify` | [基线运行失败](https://github.com/AutoGenUI/ag-ui.ai/actions/runs/38353374564/job/115150601215)，停在安全审计，后续步骤被跳过 |
 
-以上是修复前的历史失败结果。随后保留安全与体积门槛完成修复并通过 CI、合并 PR #3；main 的 required `verify`、严格更新要求、管理员约束、线性历史及禁止 force-push/删除均保留。未使用 bypass。生产 v12 与修复后 GitHub 主线仍是不同发布状态。
+以上是修复前的历史失败结果。随后保留安全与体积门槛完成修复并通过 CI、合并 PR #3；main 的 required `verify`、严格更新要求、管理员约束、线性历史及禁止 force-push/删除均保留。未使用 bypass。在该阶段，生产 v12 与修复后 GitHub 主线仍是不同发布状态；最新发布映射见本文首节。
 
-## 已合并 CI 修复与验证
+## 历史：已合并 CI 修复与验证
 
 用户已授权在 v12 同步分支修复安全审计与资源体积问题，并通过 PR #3 合入 main。修复开始前保存可恢复 Git 快照；后续按用户新指示清理已合并分支，只保留 main。下列本地验证对应原修复提交 `42c1e0c762621294652a9dacfe02b94f940bdf1e`；最新 PR head 和 main 的 GitHub required `verify` 另有链接证据。
 
@@ -95,7 +112,7 @@
 - 独立回归复核发现原始字符串深度检查可被路径规范化和引号绕过，已改为每模式最多 16 个开括号字符的保守上限，并补充两条复现及转义、ignore、负模式、同步/异步回归。该限制仅服务受信任构建模式，并非完整 fast-glob API。
 - Tailwind 扫描范围限定为实际源码，停止为未被页面引用的模板生成工具类；Vite 顶层启用客户端 Terser 两轮压缩，RSC/SSR 保持不压缩。课堂由服务器提供当前语言的展示字段，完整 16 课和双语 RAG 语料保留；客户端仅导入课程类型。页面、AG-UI 传输与 Markdown 功能均保留，未修改原体积预算。
 
-| 本轮检查 | 当前状态与范围 |
+| 当时检查 | 历史状态与范围 |
 | --- | --- |
 | 安装后安全审计 | 0 high、0 critical、8 moderate；既有 high 门槛通过，剩余项为 drizzle-kit/esbuild 及 gray-matter/sprintf-js 依赖链，未隐藏或降低门槛 |
 | 独立依赖安装 | Node 22.23.1 / npm 10.9.8 的干净 `npm ci` 通过；同步 worktree 使用自己的依赖目录，原 checkout 安装未改变 |
@@ -112,8 +129,8 @@
 
 接续时先核对实际分支、工作区、远端和 PR，复用合适 worktree，保留用户改动。更新本说明时记录来源时点与验证范围，不将私人交接包整包提交。
 
-当前 GitHub/文档接续范围不包含重新部署、DNS、邮件开关、秘密、定时任务或真实邮件。后续功能与发布以用户当轮授权为准，不从交接推定额外权限。保持零新增付费与默认无付费模型调用。
+v1.0.0 发布已完成；本次收尾仅更新公开文档，不再次部署或移动 release tag。后续功能与发布以用户当轮授权为准，不从交接推定 DNS、邮件开关、秘密、定时任务或真实邮件权限。保持零新增付费与默认无付费模型调用。
 
-本地 HTTP 验证只用隔离 D1 和本地 Worker，邮件三个开关均 false，无真实密钥，不使用生产站点作 `SITE_TEST_BASE_URL`，不伪造所有者。完整验证入口见 [README](../README.md)、[CI 工作流](../.github/workflows/ci.yml) 与 [部署维护](operations/deployment-maintenance.md)。本轮维护资料更新走临时 PR 分支与 required `verify`，完成后清理该分支；没有重新部署、DNS、生产配置、任务或真实邮件动作。
+本地 HTTP 验证只用隔离 D1 和本地 Worker，邮件三个开关均 false，无真实密钥，不使用生产站点作 `SITE_TEST_BASE_URL`，不伪造所有者。正式发布后的公开 HTTP/浏览器只读检查与本地测试分开记录。完整验证入口见 [README](../README.md)、[CI 工作流](../.github/workflows/ci.yml) 与 [部署维护](operations/deployment-maintenance.md)。收尾资料更新走临时 PR 分支与 required `verify`，完成后清理该分支；不额外执行部署、DNS、生产配置、任务或真实邮件动作。
 
 当前待持续处理：moderate 依赖链、体积余量、完整关闭邮件跟踪、受限网络验证、真实排队取消及退信场景，以及授权生产维护时的账户权限/完整 DNS/迁移 ledger/托管 D1 备份恢复/实际任务运行状态刷新。不要把这些尚未核验事项记录为完成。
