@@ -48,7 +48,9 @@ function SubscriptionView({ locale, initialLink, onManagementUrl }: {
     [consent, setConsent] = useState(false),
     [notice, setNotice] = useState<Notice | null>(null),
     [busy, setBusy] = useState<SubscriptionAction | null>(null),
-    [attention, setAttention] = useState(0);
+    [attention, setAttention] = useState(0),
+    [copyingFeed, setCopyingFeed] = useState<Locale | null>(null),
+    [feedNotice, setFeedNotice] = useState<{ language: Locale; copied: boolean } | null>(null);
   const generation = useRef(0), readLink = useRef(initialLink),
     submitting = useRef(false), submissionAbort = useRef<AbortController | null>(null),
     noticeRef = useRef<HTMLElement | null>(null), formRef = useRef<HTMLFormElement | null>(null);
@@ -95,6 +97,18 @@ function SubscriptionView({ locale, initialLink, onManagementUrl }: {
 
   const refreshCapacity = () => { setCapacityState("loading"); setCapacityRetry(value => value + 1); };
   const retryRead = () => { setReadState("loading"); setNotice(null); setReadRetry(value => value + 1); };
+  const copyFeed = async (feedLanguage: Locale) => {
+    const requestGeneration = generation.current;
+    setCopyingFeed(feedLanguage); setFeedNotice(null);
+    try {
+      await navigator.clipboard.writeText(`https://ag-ui.ai/${feedLanguage}/feed.xml`);
+      if (requestGeneration === generation.current) setFeedNotice({ language: feedLanguage, copied: true });
+    } catch {
+      if (requestGeneration === generation.current) setFeedNotice({ language: feedLanguage, copied: false });
+    } finally {
+      if (requestGeneration === generation.current) setCopyingFeed(null);
+    }
+  };
 
   const terminalKind = notice?.kind === "unsubscribed" || notice?.kind === "suppressed" ? notice.kind
     : subscriber?.status === "unsubscribed" || subscriber?.status === "suppressed" ? subscriber.status : null;
@@ -189,14 +203,19 @@ function SubscriptionView({ locale, initialLink, onManagementUrl }: {
 
   return (
     <div className="n-subscription-layout">
-      <div>
-        <h2>{zh ? "每周精选" : "A weekly perspective"}</h2>
-        <p>{zh ? "选择语言与主题，精选事件、研究与值得关注的方向。只发送有实质更新的周报。" : "Choose a language and topics for a considered selection of events, research and emerging directions. No empty editions."}</p>
+      <div className="n-subscription-main">
+        <header className="n-subscription-intro">
+          <span className="n-kicker">EMAIL DIGEST</span>
+          <h2>{manage ? zh ? "你的邮件订阅" : "Your email subscription" : zh ? "每周精选，送达邮箱。" : "A weekly perspective, by email."}</h2>
+          <p>{zh ? "选择语言与主题，精选事件、研究与值得关注的方向。只发送有实质更新的周报。" : "Choose a language and topics for a considered selection of events, research and emerging directions. No empty editions."}</p>
+        </header>
         <section className="n-subscription-capacity" aria-label={zh ? "订阅名额" : "Subscription availability"} aria-busy={capacityState === "loading"}>
           {capacity ? <>
-            <strong>{zh ? `已确认订阅 ${capacity.confirmedCount} / 当前容量 ${capacity.capacity} 人（本站设置）` : `${capacity.confirmedCount} confirmed / ${capacity.capacity} places (site limit)`}</strong>
+            <div className="n-subscription-capacity-head">
+              <div><span className="n-subscription-capacity-label">{zh ? "已确认订阅 / 当前容量" : "Confirmed / capacity"}</span><strong>{capacity.confirmedCount}<span> / {capacity.capacity}</span></strong><span className="n-subscription-capacity-label">{zh ? "位订阅者 · 本站设置" : "subscribers · site limit"}</span></div>
+              <span className={`n-subscription-remaining${capacity.full ? " is-full" : ""}`}>{capacity.full ? zh ? "名额已满" : "Capacity reached" : zh ? `剩余 ${capacity.remaining} 个名额` : `${capacity.remaining} places remaining`}</span>
+            </div>
             <progress max={capacity.capacity} value={Math.min(capacity.confirmedCount, capacity.capacity)} aria-label={zh ? "已确认订阅人数" : "Confirmed subscribers"} />
-            <span className="n-subscription-remaining">{capacity.full ? zh ? "名额已满" : "Capacity reached" : zh ? `剩余 ${capacity.remaining} 个名额` : `${capacity.remaining} places remaining`}</span>
             <p>{zh ? `名额以邮箱确认成功为准，待确认不占名额。免费发信上限 ${capacity.dailyLimit} 封/天，周报发送预算 ${capacity.weeklyLimit} 封/天；当日额度也用于确认邮件，不能保证同日送达。` : `Places are allocated only after email confirmation; pending requests do not occupy places. The free allowance is ${capacity.dailyLimit} emails/day, with a ${capacity.weeklyLimit}/day digest budget. Confirmations share the daily allowance; delivery on the same day is not guaranteed.`}</p>
           </> : <p>{capacityState === "loading" ? zh ? "正在读取已确认人数与剩余名额…" : "Loading confirmed subscribers and remaining places…" : zh ? "订阅人数暂时未知，请重试读取。" : "Subscriber counts are temporarily unknown. Please retry."}</p>}
           {capacityState === "error" && <p className="n-subscription-inline-error" role="status">{zh ? "名额信息未能更新；已有数字是上次读取结果。已生效订阅仍可退订或管理。" : "Availability could not be updated; any figures shown are the last loaded values. Active subscriptions can still be managed or unsubscribed."}</p>}
@@ -217,16 +236,36 @@ function SubscriptionView({ locale, initialLink, onManagementUrl }: {
         {showForm && <form className="n-subscription-form" ref={formRef} aria-busy={busy !== null} onSubmit={event => { event.preventDefault(); void submit(currentAction); }}>
           <fieldset className="n-subscription-fields" disabled={formLocked}>
             <legend className="n-subscription-sr-only">{zh ? "订阅信息" : "Subscription details"}</legend>
-            {!manage && <label>{zh ? "邮箱" : "Email"}<input type="email" required autoComplete="email" value={email} onChange={event => setEmail(event.target.value)} /></label>}
-            <label>{zh ? "语言" : "Language"}<select value={language} onChange={event => setLanguage(event.target.value as Locale)}><option value="zh">中文</option><option value="en">English</option></select></label>
-            <fieldset className="n-subscription-topics"><legend>{zh ? "关注主题（至少选择一项）" : "Topics (choose at least one)"}</legend>{categories.map(category => <label key={category}><input type="checkbox" checked={topics.includes(category)} onChange={event => setTopics(current => event.target.checked ? [...current, category] : current.filter(value => value !== category))} />{categoryNames[category][locale]}</label>)}</fieldset>
+            <div className="n-subscription-group-head"><h3>{confirmationMode ? zh ? "确认周报订阅" : "Confirm your digest subscription" : manage ? zh ? "调整阅读偏好" : "Your reading preferences" : zh ? "设置你的周报" : "Make the digest yours"}</h3><p>{zh ? "只留下你关心的内容。" : "Keep the subjects that matter to you."}</p></div>
+            <div className={`n-subscription-delivery${manage ? " is-manage" : ""}`}>
+              {!manage && <label><span>{zh ? "接收邮箱" : "Email address"}</span><input type="email" required autoComplete="email" placeholder="you@example.com" value={email} onChange={event => setEmail(event.target.value)} /></label>}
+              <label><span>{zh ? "周报语言" : "Digest language"}</span><select value={language} onChange={event => setLanguage(event.target.value as Locale)}><option value="zh">中文</option><option value="en">English</option></select></label>
+            </div>
+            <fieldset className="n-subscription-topics"><legend>{zh ? "关注主题" : "Your topics"}</legend><p className="n-subscription-topic-help">{zh ? "至少选择一项，可随时调整。" : "Choose at least one. You can update this anytime."}</p><div className="n-subscription-topic-grid">{categories.map(category => <label className={topics.includes(category) ? "is-selected" : ""} key={category}><input type="checkbox" checked={topics.includes(category)} onChange={event => setTopics(current => event.target.checked ? [...current, category] : current.filter(value => value !== category))} /><span>{categoryNames[category][locale]}</span></label>)}</div></fieldset>
             {!manage && <label className="n-subscription-consent"><input type="checkbox" required checked={consent} onChange={event => setConsent(event.target.checked)} />{zh ? "我同意接收所选主题的周报，可随时退订。" : "I agree to receive the weekly digest for these topics and can unsubscribe anytime."}</label>}
-            <div className="n-subscription-actions"><button className="n-button" disabled={formLocked || !topics.length}>{buttonText}</button>{manage && !confirmationMode && subscriber?.status === "confirmed" && <button type="button" className="n-subscription-secondary n-subscription-unsubscribe-button" disabled={formLocked} onClick={() => void submit("unsubscribe")}>{busy === "unsubscribe" ? zh ? "正在退订…" : "Unsubscribing…" : zh ? "退订所有邮件" : "Unsubscribe from all email"}</button>}</div>
+            <div className="n-subscription-actions"><button className="n-button" disabled={formLocked || !topics.length}>{buttonText}<span aria-hidden="true">→</span></button><span className="n-subscription-action-hint">{zh ? "无需注册账号" : "No account required"}</span></div>
+            {manage && !confirmationMode && subscriber?.status === "confirmed" && <section className="n-subscription-unsubscribe-area" aria-label={zh ? "结束邮件订阅" : "Stop email updates"}><div><h3>{zh ? "不再接收邮件？" : "Prefer fewer emails?"}</h3><p>{zh ? "退订将停止此邮箱的后续邮件，RSS 仍可继续使用。" : "Unsubscribing stops future email to this address. RSS remains available."}</p></div><button type="button" className="n-subscription-secondary n-subscription-unsubscribe-button" disabled={formLocked} onClick={() => void submit("unsubscribe")}>{busy === "unsubscribe" ? zh ? "正在退订…" : "Unsubscribing…" : zh ? "退订所有邮件" : "Unsubscribe from all email"}</button></section>}
           </fieldset>
         </form>}
-        <p className="n-small">{zh ? "无需注册账号。邮件由 Brevo 投递，当前匿名打开与点击统计不关联具体联系人，但仍可能包含像素与链接跟踪；本站不依据这些统计决定发信或判断已读。" : "No account required. Brevo’s anonymous open and click statistics are not associated with individual contacts, but tracking pixels and tracked links may remain. We do not use these statistics to decide whether to send email or as proof that an email was read."}</p>
+        <p className="n-small n-subscription-disclosure">{zh ? "邮件由 Brevo 投递。当前匿名打开与点击统计不关联具体联系人，但仍可能包含像素与链接跟踪；本站不依据这些统计决定发信或判断已读。" : "Email is delivered by Brevo. Anonymous open and click statistics are not associated with individual contacts, but tracking pixels and tracked links may remain. We do not use these statistics to decide whether to send email or as proof that an email was read."}</p>
       </div>
-      <aside className="n-rss-box"><span className="n-kicker">OPEN FEEDS</span><h2>{zh ? "用你喜欢的方式阅读。" : "Read on your terms."}</h2><p>{zh ? "RSS 已开放，包含全部已发布新闻，无需邮件订阅名额。" : "RSS is available with all published stories and does not require an email subscription place."}</p><a href="/zh/feed.xml">中文 RSS <span>↗</span></a><a href="/en/feed.xml">English RSS <span>↗</span></a><small>{zh ? "兼容入口：/feed.xml（英文）" : "Compatibility feed: /feed.xml (English)"}</small></aside>
+      <aside className="n-subscription-sidebar" aria-label={zh ? "RSS 阅读方式" : "Read with RSS"}>
+        <section className="n-rss-box">
+          <div className="n-rss-heading"><span className="n-kicker">OPEN FEEDS</span><img src="/brand/rss-feed.svg" width="38" height="38" alt="" aria-hidden="true" /></div>
+          <h2>{zh ? "阅读，不止一种方式。" : "Read on your terms."}</h2>
+          <p>{zh ? "全部已发布新闻，直接进入你的 RSS 阅读器。无需邮箱，也不占订阅名额。" : "All published stories, directly in your RSS reader. No email address or subscription place needed."}</p>
+          <div className="n-rss-feeds">{(["zh", "en"] as const).map(feedLanguage => {
+            const feedUrl = `https://ag-ui.ai/${feedLanguage}/feed.xml`;
+            const feedName = feedLanguage === "zh" ? "中文 RSS" : "English RSS";
+            return <div className="n-rss-feed" key={feedLanguage}>
+              <div className="n-rss-feed-head"><a href={`/${feedLanguage}/feed.xml`}>{feedName}<span aria-hidden="true">↗</span></a><button type="button" disabled={copyingFeed !== null} onClick={() => void copyFeed(feedLanguage)} aria-label={zh ? `复制${feedName}链接` : `Copy ${feedName} link`}>{copyingFeed === feedLanguage ? zh ? "复制中…" : "Copying…" : feedNotice?.language === feedLanguage && feedNotice.copied ? zh ? "已复制 ✓" : "Copied ✓" : zh ? "复制链接" : "Copy link"}</button></div>
+              <label className="n-subscription-sr-only" htmlFor={`rss-${feedLanguage}`}>{feedName} URL</label><input id={`rss-${feedLanguage}`} className="n-rss-url" readOnly value={feedUrl} onFocus={event => event.currentTarget.select()} aria-describedby="rss-copy-status" />
+            </div>;
+          })}</div>
+          <p id="rss-copy-status" className={`n-rss-copy-status${feedNotice?.copied === false ? " is-error" : ""}`} role="status" aria-live="polite">{feedNotice ? feedNotice.copied ? zh ? "链接已复制。粘贴到阅读器即可订阅。" : "Link copied. Paste it into your reader to subscribe." : zh ? "未能自动复制。可选中上方地址手动复制。" : "Automatic copy failed. Select the address above and copy it manually." : zh ? "点击地址可选中，便于手动复制。" : "Select an address to copy it manually."}</p>
+        </section>
+        <section className="n-rss-guide" aria-labelledby="rss-guide-title"><span className="n-kicker">HOW TO READ</span><h3 id="rss-guide-title">{zh ? "把新闻加入阅读器" : "Add the news to your reader"}</h3><ol><li><span>{zh ? "选择语言" : "Choose a language"}</span>{zh ? "复制上方中文或英文 RSS 地址。" : "Copy the Chinese or English feed address above."}</li><li><span>{zh ? "添加订阅源" : "Add a feed"}</span>{zh ? "在你的 RSS 阅读器中粘贴地址，添加即可。" : "Paste the address into your RSS reader and add it."}</li></ol><p>{zh ? "兼容入口：" : "Compatibility feed: "}<a href="/feed.xml">/feed.xml</a>{zh ? "（英文）" : " (English)"}</p></section>
+      </aside>
     </div>
   );
 }
