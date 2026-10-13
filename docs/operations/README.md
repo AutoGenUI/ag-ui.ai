@@ -11,7 +11,7 @@
 
 ## 当前主线与证据
 
-2026-10-13 用户已授权 **v1.0.1 标签、代码推送及更新部署**，此前等待验收的门槛由此覆盖。最新完成状态、源码、tag 和 Sites 映射以 [v1.0.1 回执](../releases/v1.0.1.md) 与 [CURRENT_STATE.json](../CURRENT_STATE.json) 的 `release` 为准。以下 v1.0.0 项保留为历史证据，不作为最新运行版本；当前发布不新增真实收件验收或改变邮件额度。
+2026-10-13 **v1.0.1 标签已推送、正式站点已更新为 Sites v17**；发布提交 `fae53ff09c26ca10985e5a48d04a76fc1511046b`，部署 13:48:23 UTC 成功，119 项 CI 与原构建预算通过。首次本地 HTTP 失败及同提交重跑成功均保留。最新完成状态、源码、tag 和 Sites 映射见 [v1.0.1 回执](../releases/v1.0.1.md) 与 [CURRENT_STATE.json](../CURRENT_STATE.json) 的 `release`。以下 v1.0.0 项保留为历史证据，不作为最新运行版本；当前发布不新增真实收件验收或改变邮件额度。
 
 - GitHub 主线为 [AutoGenUI/ag-ui.ai 的 main](https://github.com/AutoGenUI/ag-ui.ai)。[PR #5](https://github.com/AutoGenUI/ag-ui.ai/pull/5) 已正常合并，远端带注释 tag [v1.0.0 / 正式 Release](https://github.com/AutoGenUI/ag-ui.ai/releases/tag/v1.0.0) 指向 `71ff116e033f0295a44415d13acd92bf1c0b97b6`；[PR verify](https://github.com/AutoGenUI/ag-ui.ai/actions/runs/38381641758/job/115243248665) 和 [main verify](https://github.com/AutoGenUI/ag-ui.ai/actions/runs/38381929658/job/115244227252) 通过。每次迭代可使用临时 PR 分支，合并并核对内容后清理，长期仅保留 main，不改主分支保护。
 - 正式 v1.0.0 已于 2026-10-13 10:15:25.780042 UTC 部署至原 Sites 项目，数字版本序号 13，deployment `appgdep_6ace04b15f408191ad18bdcbbe4be3d3` 终态 succeeded。Sites source `8512d230c7df3bece70c503af02ff2acce0dbe9d` 的 tree 与 release tree `661f59e806ce2174a33d6d87b9b44d0959400554` 一致。完整 version_id、tag 对象及验收见 [发布回执](../releases/v1.0.0.md)。GitHub 合并仍不自动代表 Sites 部署；本次两者各有独立凭据。
@@ -41,7 +41,7 @@
 
 ## 尚需后续验证
 
-- 8 项 moderate 依赖问题与 v1.0.0 JS 原始体积仅 375 字节余量（919625 / 920000）：未来依赖/页面修改重新审计和构建，不降门槛。旧 CI 修复的 1169 字节余量仅属于历史构建。
+- 8 项 moderate 依赖问题与 v1.0.1 JS 原始体积仅 39 字节余量（919961 / 920000）：未来依赖/页面修改重新审计和构建，不降门槛。旧 CI 修复的 1169 字节余量仅属于历史构建。
 - 邮件匿名跟踪已按交接接受并披露；完全关闭像素与链接改写尚未验证。中国大陆可访问性不保证。
 - 当前账户权限、完整 DNS 清单、DKIM selector、实际部署版本、迁移 ledger、托管 D1 备份/恢复方式、实时任务状态与 provider 剩余额度均需在授权的生产维护中刷新。
 - 真实 queued cancellation 与完整退信场景未全部观察；本地测试和历史验收不能扩写为所有生产情形都已验收。
