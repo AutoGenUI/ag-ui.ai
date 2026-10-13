@@ -12,6 +12,10 @@ export type MailConfig = {
   domainVerified?: boolean;
   testRecipient?: string;
 };
+export const DAILY_EMAIL_LIMIT = 300;
+export const WEEKLY_EMAIL_LIMIT = 250;
+// This site's confirmed-subscriber policy, not a Brevo contact-list limit.
+export const PUBLIC_SUBSCRIBER_CAPACITY = WEEKLY_EMAIL_LIMIT;
 export const preferenceSchema = z.object({
   locale: z.enum(["en", "zh"]),
   topics: z.array(z.enum(categories)).min(1).max(6),
@@ -39,6 +43,20 @@ export function mailReady(c: MailConfig) {
     c.enabled && !!c.apiKey && !!c.sender && !!c.secret && !!c.webhookSecret
   );
 }
+export async function mailCapacity(db: Database, c: MailConfig) {
+  const confirmedCount = Number((await db.prepare(
+    "SELECT count(*) AS count FROM subscribers WHERE is_test=0 AND status='confirmed'",
+  ).first<{ count: number }>())?.count || 0);
+  return {
+    enabled: mailReady(c), confirmedCount, capacity: PUBLIC_SUBSCRIBER_CAPACITY,
+    remaining: Math.max(0, PUBLIC_SUBSCRIBER_CAPACITY - confirmedCount),
+    full: confirmedCount >= PUBLIC_SUBSCRIBER_CAPACITY,
+    dailyLimit: DAILY_EMAIL_LIMIT, weeklyLimit: WEEKLY_EMAIL_LIMIT,
+  };
+}
+const capacityFull = async (db: Database, c: MailConfig) => ({
+  status: "capacity-full" as const, aggregateCapacity: await mailCapacity(db, c),
+});
 export function mailTestReady(c: MailConfig) {
   return (
     c.domainVerified === true &&
@@ -61,6 +79,7 @@ export async function subscribe(
   if (!mailReady(c)) return { status: "pending-activation" };
   const input = subscriptionSchema.parse(body),
     email = input.email.trim().toLowerCase();
+  if ((await mailCapacity(db, c)).full) return capacityFull(db, c);
   if (
     !(await rateLimit(db, `signup:${clientKey}`, 5)) ||
     !(await rateLimit(db, `email:${await hmac(email, c.secret)}`, 2, 86400000))
@@ -72,12 +91,12 @@ export async function subscribe(
   await db.batch([
     // D1 serializes this batch. Concurrent callers use the actual email winner,
     // never a losing request's subscriber ID or confirmation expiry.
-    db.prepare("INSERT OR IGNORE INTO subscribers(id,email,locale,topics,status,created_at,token_expires) VALUES(?,?,?,?,'pending',?,?)")
-      .bind(crypto.randomUUID(), email, input.locale, JSON.stringify(input.topics), now, expires),
+    db.prepare("INSERT OR IGNORE INTO subscribers(id,email,locale,topics,status,created_at,token_expires) SELECT ?,?,?,?,'pending',?,? WHERE (SELECT count(*) FROM subscribers WHERE is_test=0 AND status='confirmed')<?")
+      .bind(crypto.randomUUID(), email, input.locale, JSON.stringify(input.topics), now, expires, PUBLIC_SUBSCRIBER_CAPACITY),
     // Any confirmation history protects a live token. An expired, known
     // generation can be replaced; sending/uncertain always requires review.
-    db.prepare("INSERT OR IGNORE INTO deliveries(id,subscriber_id,kind,status,created_at,updated_at) SELECT ?,s.id,'confirmation','queued',?,? FROM subscribers s WHERE s.email=? AND s.is_test=0 AND s.status='pending' AND NOT EXISTS (SELECT 1 FROM deliveries d WHERE d.subscriber_id=s.id AND d.is_test=0 AND d.kind='confirmation' AND (d.status IN ('sending','uncertain') OR s.token_expires>?))")
-      .bind(candidate, now, now, email, now),
+    db.prepare("INSERT OR IGNORE INTO deliveries(id,subscriber_id,kind,status,created_at,updated_at) SELECT ?,s.id,'confirmation','queued',?,? FROM subscribers s WHERE s.email=? AND s.is_test=0 AND s.status='pending' AND (SELECT count(*) FROM subscribers WHERE is_test=0 AND status='confirmed')<? AND NOT EXISTS (SELECT 1 FROM deliveries d WHERE d.subscriber_id=s.id AND d.is_test=0 AND d.kind='confirmation' AND (d.status IN ('sending','uncertain') OR s.token_expires>?))")
+      .bind(candidate, now, now, email, PUBLIC_SUBSCRIBER_CAPACITY, now),
     // Only the request that inserted a confirmation may change preferences or
     // start a new expiry; a valid expiry (and its HMAC) stays unchanged.
     db.prepare("UPDATE subscribers SET locale=?,topics=?,token_expires=CASE WHEN token_expires>? THEN token_expires ELSE ? END WHERE email=? AND is_test=0 AND status='pending' AND EXISTS (SELECT 1 FROM deliveries d WHERE d.id=? AND d.subscriber_id=subscribers.id AND d.is_test=0 AND d.status='queued')")
@@ -89,6 +108,7 @@ export async function subscribe(
   ]);
   const subscriber = await db.prepare("SELECT status,is_test FROM subscribers WHERE email=?")
     .bind(email).first<{ status: string; is_test: number }>();
+  if ((await mailCapacity(db, c)).full) return capacityFull(db, c);
   if (!subscriber || subscriber.is_test !== 0 || subscriber.status !== "pending")
     return { status: "check-inbox" };
   await drainQueue(db, c, 5);
@@ -117,14 +137,15 @@ export async function manageSubscription(
     )
   )
     throw new Error("Invalid or expired link");
+  let preferenceApplied = true;
   if (action === "confirm") {
     if (!s.token_expires || Date.parse(s.token_expires) <= Date.now())
       throw new Error("Confirmation link expired");
     await db
       .prepare(
-        "UPDATE subscribers SET status='confirmed',confirmed_at=COALESCE(confirmed_at,?) WHERE id=? AND status='pending' AND created_at=? AND token_expires=?",
+        "UPDATE subscribers SET status='confirmed',confirmed_at=COALESCE(confirmed_at,?) WHERE id=? AND status='pending' AND created_at=? AND token_expires=? AND (is_test=1 OR (SELECT count(*) FROM subscribers WHERE is_test=0 AND status='confirmed')<?)",
       )
-      .bind(new Date().toISOString(), id, s.created_at, s.token_expires)
+      .bind(new Date().toISOString(), id, s.created_at, s.token_expires, PUBLIC_SUBSCRIBER_CAPACITY)
       .run();
   } else if (action === "unsubscribe") {
     await db.batch([
@@ -139,18 +160,25 @@ export async function manageSubscription(
     ]);
   } else if (action === "preferences") {
     const p = preferenceSchema.parse(input);
-    await db
+    const changed = await db
       .prepare(
         "UPDATE subscribers SET locale=?,topics=? WHERE id=? AND status='confirmed' AND created_at=?",
       )
       .bind(p.locale, JSON.stringify(p.topics), id, s.created_at)
       .run();
+    preferenceApplied = changed.meta.changes > 0;
   }
   const current = await db
     .prepare(`SELECT locale,topics,status FROM subscribers WHERE id=? AND created_at=?${action === "confirm" ? " AND token_expires=?" : ""}`)
     .bind(id, s.created_at, ...(action === "confirm" ? [s.token_expires] : []))
-    .first();
+    .first<{ locale: string; topics: string; status: string }>();
   if (!current) throw new Error("Invalid or expired link");
+  if (action === "confirm" && current.status === "pending" && s.is_test !== 1)
+    return capacityFull(db, c);
+  if (action === "confirm" && current.status !== "confirmed")
+    return { status: "confirmation-unavailable", subscriberStatus: current.status };
+  if (action === "preferences" && !preferenceApplied)
+    return { status: "preferences-not-saved", subscriberStatus: current.status };
   return { ...current, token: await tokenFor(s, c.secret) };
 }
 export async function queueDigest(db: Database, week: string) {
@@ -412,7 +440,7 @@ async function deliverQueued(
       .prepare(
         "INSERT INTO mail_quota(day,count) VALUES(?,1) ON CONFLICT(day) DO UPDATE SET count=count+1 WHERE count<? RETURNING count",
       )
-      .bind(day, d.kind === "confirmation" ? 300 : 250)
+      .bind(day, d.kind === "confirmation" ? DAILY_EMAIL_LIMIT : WEEKLY_EMAIL_LIMIT)
       .first();
     if (!quota) {
       await db

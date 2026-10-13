@@ -7,7 +7,7 @@ import { newsSchema, canonicalUrl, singaporeDay } from '../lib/news/core.ts';
 import { articles, upsertNews, seedDatabase, seed, freshness } from '../lib/news/store.ts';
 import { operate } from '../lib/news/operations.ts';
 import { recordMetric, statsSummary } from '../lib/news/analytics.ts';
-import { drainQueue, mailWebhook, manageSubscription, queueDigest, subscribe, tokenFor, mailTest, mailTestReady } from '../lib/news/mail.ts';
+import { drainQueue, mailWebhook, manageSubscription, queueDigest, subscribe, tokenFor, mailTest, mailTestReady, mailCapacity, DAILY_EMAIL_LIMIT, WEEKLY_EMAIL_LIMIT, PUBLIC_SUBSCRIBER_CAPACITY } from '../lib/news/mail.ts';
 function database(){const raw=new DatabaseSync(':memory:');
   // Cloudflare D1 limits LIKE/GLOB patterns to 50 bytes; desktop SQLite's
   // default is much larger. Enforce the actual LIKE limit in every fixture.
@@ -39,6 +39,78 @@ async function pendingPublicFixture(db,label,expires,deliveryStatus='submitted',
     .bind(deliveryId,s.id,deliveryStatus,s.created_at,s.created_at,s.created_at,s.is_test).run();
   return {...s,deliveryId};
 }
+async function capacityFixture(db,count,is_test=0,label='capacity') {
+  const now=new Date().toISOString(),expires=new Date(Date.now()+86400000).toISOString(),rows=[];
+  const statements=[];
+  for(let index=0;index<count;index++) {
+    const s={id:crypto.randomUUID(),email:`fixture-${label}-${index}@example.test`,locale:'zh',topics:'["product"]',status:'confirmed',created_at:now,token_expires:expires,is_test};rows.push(s);
+    statements.push(db.prepare("INSERT INTO subscribers(id,email,locale,topics,status,created_at,confirmed_at,token_expires,is_test) VALUES(?,?,?,?,'confirmed',?,?,?,?)").bind(s.id,s.email,s.locale,s.topics,now,now,expires,is_test));
+  }
+  if(statements.length) await db.batch(statements);
+  return rows;
+}
+test('public capacity aggregates confirmed production subscribers only without personal fields',async()=>{
+  const db=database();await capacityFixture(db,2);await capacityFixture(db,5,1,'capacity-test');
+  for(const status of ['pending','suppressed','unsubscribed']) await pendingPublicFixture(db,`capacity-${status}`,new Date(Date.now()+86400000).toISOString(),null,{status});
+  const summary=await mailCapacity(db,active);
+  assert.deepEqual(summary,{enabled:true,confirmedCount:2,capacity:PUBLIC_SUBSCRIBER_CAPACITY,remaining:248,full:false,dailyLimit:DAILY_EMAIL_LIMIT,weeklyLimit:WEEKLY_EMAIL_LIMIT});
+  assert.doesNotMatch(JSON.stringify(summary),/example\.test|token|email|subscriber_id/);
+  assert.equal((await mailCapacity(db,config)).enabled,false);
+  const dashboard=await operate(db,'dashboard',{},active);
+  for(const key of Object.keys(summary)) assert.equal(dashboard.email[key],summary[key]);
+});
+test('full public signup collects nothing and the transactional insert closes a concurrent capacity race',async()=>{
+  for(const fillDuringBatch of [false,true]) {
+    const db=database();await capacityFixture(db,fillDuringBatch?249:250);
+    if(fillDuringBatch) {const batch=db.batch;let filled=false;db.batch=async statements=>{if(!filled){filled=true;await pendingPublicFixture(db,'concurrent-last-slot',new Date(Date.now()+86400000).toISOString(),null,{status:'confirmed'});}return batch(statements);};}
+    await mockedMail(async sent=>{
+      const input=publicInput('fixture-capacity-new@example.test');
+      const result=await subscribe(db,input,active,'fixture-capacity-client');
+      assert.equal(result.status,'capacity-full');assert.equal(result.aggregateCapacity.confirmedCount,250);assert.equal(result.aggregateCapacity.remaining,0);
+      assert.equal(await db.prepare('SELECT id FROM subscribers WHERE email=?').bind(input.email).first(),null);
+      assert.equal((await db.prepare('SELECT count(*) AS n FROM deliveries').first()).n,0);
+      assert.equal((await db.prepare('SELECT count(*) AS n FROM mail_quota').first()).n,0);assert.equal(sent.length,0);
+      if(!fillDuringBatch) assert.equal((await db.prepare('SELECT count(*) AS n FROM rate_limits').first()).n,0);
+    });
+  }
+});
+test('249-to-250 concurrent confirmations have one winner and the original pending link works after a slot is released',async()=>{
+  const db=database();await capacityFixture(db,249);
+  const expires=new Date(Date.now()+86400000).toISOString();
+  const pending=[await pendingPublicFixture(db,'last-slot-a',expires),await pendingPublicFixture(db,'last-slot-b',expires)];
+  const inputs=await Promise.all(pending.map(async s=>({id:s.id,token:await tokenFor(s,active.secret,'confirm'),action:'confirm'})));
+  await mockedMail(async sent=>{
+    const results=await Promise.all(inputs.map(input=>manageSubscription(db,input,active)));
+    const winner=results.findIndex(result=>result.status==='confirmed'),loser=1-winner;
+    assert.ok(winner>=0);assert.equal(results[loser].status,'capacity-full');
+    assert.equal((await mailCapacity(db,active)).confirmedCount,250);
+    const blocked=await db.prepare('SELECT * FROM subscribers WHERE id=?').bind(pending[loser].id).first();
+    assert.equal(blocked.status,'pending');assert.equal(blocked.token_expires,expires);
+    assert.equal((await manageSubscription(db,inputs[winner],active)).status,'confirmed');
+    const saved=await manageSubscription(db,{id:pending[winner].id,token:results[winner].token,action:'preferences',locale:'en',topics:['research']},active);
+    assert.equal(saved.status,'confirmed');assert.equal(saved.locale,'en');
+    const pendingManage=await tokenFor(pending[loser],active.secret);
+    assert.equal((await manageSubscription(db,{id:pending[loser].id,token:pendingManage,action:'preferences',locale:'en',topics:['research']},active)).status,'preferences-not-saved');
+    await manageSubscription(db,{id:pending[winner].id,token:results[winner].token,action:'unsubscribe'},active);
+    assert.equal((await mailCapacity(db,active)).remaining,1);
+    assert.equal((await manageSubscription(db,inputs[loser],active)).status,'confirmed');
+    assert.equal((await mailCapacity(db,active)).confirmedCount,250);assert.equal(sent.length,0);
+  });
+});
+test('test confirmation ignores public capacity while opted-out confirmations and unsaved preferences remain rejected',async()=>{
+  const db=database();await capacityFixture(db,250);
+  const expires=new Date(Date.now()+86400000).toISOString();
+  const testRow=await pendingPublicFixture(db,'capacity-test-confirm',expires,null,{is_test:1});
+  assert.equal((await manageSubscription(db,{id:testRow.id,token:await tokenFor(testRow,active.secret,'confirm'),action:'confirm'},active)).status,'confirmed');
+  assert.equal((await mailCapacity(db,active)).confirmedCount,250);
+  for(const status of ['suppressed','unsubscribed']) {
+    const s=await pendingPublicFixture(db,`capacity-no-revive-${status}`,expires,null,{status});
+    const before=await db.prepare('SELECT * FROM subscribers WHERE id=?').bind(s.id).first();
+    assert.equal((await manageSubscription(db,{id:s.id,token:await tokenFor(s,active.secret,'confirm'),action:'confirm'},active)).status,'confirmation-unavailable');
+    assert.equal((await manageSubscription(db,{id:s.id,token:await tokenFor(s,active.secret),action:'preferences',locale:'en',topics:['research']},active)).status,'preferences-not-saved');
+    assert.deepEqual(await db.prepare('SELECT * FROM subscribers WHERE id=?').bind(s.id).first(),before);
+  }
+});
 test('public pending retries preserve the first confirmation link across the local midnight',async(t)=>{
   t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-10-11T15:58:00.000Z')});
   const db=database(),input=publicInput('fixture-sequential@example.test');
@@ -504,10 +576,10 @@ test('webhook HTTP route accepts the configured Bearer and rejects other credent
     if(url!==runtimeUrl) return nextLoad(url,context);
     return {format:'module',shortCircuit:true,source:`
       const fixture=globalThis.__agUiWebhookRuntimeFixture;
-      export const setting=key=>key==='BREVO_WEBHOOK_SECRET'?fixture.secret:'';
+      export const setting=key=>key==='BREVO_WEBHOOK_SECRET'?fixture.secret:(fixture.settings?.[key]||'');
       export const database=()=>{fixture.databaseCalls++;return fixture.db;};
       export const isOwner=()=>false;
-      export const originAllowed=()=>false;
+      export const originAllowed=request=>fixture.allowOrigin===true&&request.headers.get('origin')===new URL(request.url).origin;
       export const json=(data,status=200,headers={})=>Response.json(data,{status,headers:{'Cache-Control':'no-store',...headers}});
       export const readBody=async request=>{fixture.reads++;return request.json();};
     `};
@@ -534,6 +606,26 @@ test('webhook HTTP route accepts the configured Bearer and rejects other credent
     assert.equal(admin.status,403);assert.equal(state.databaseCalls,1);
     const mcp=await newsApi(new Request('https://fixture.example.test/mcp',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/call',params:{name:'newsroom_write',arguments:JSON.parse(restartBody)}})}));
     assert.equal(mcp.status,403);assert.equal(state.databaseCalls,1);
+    state.settings={EMAIL_ENABLED:'true',BREVO_DOMAIN_VERIFIED:'true',EMAIL_ACCEPTANCE_PASSED:'true',BREVO_API_KEY:active.apiKey,BREVO_SENDER_EMAIL:active.sender,SUBSCRIPTION_SECRET:active.secret};
+    state.secret='fixture-only-not-a-production-webhook-secret';state.allowOrigin=true;
+    const formal=await capacityFixture(db,250,0,'http-capacity');
+    const publicRequest=(path,body)=>new Request(`https://fixture.example.test${path}`,{method:'POST',headers:{origin:'https://fixture.example.test','content-type':'application/json'},body:JSON.stringify(body)});
+    const publicStatus=await newsApi(new Request('https://fixture.example.test/api/subscription/status'));
+    assert.equal(publicStatus.status,200);
+    const aggregate=await publicStatus.json();
+    assert.deepEqual(aggregate,{enabled:true,confirmedCount:250,capacity:250,remaining:0,full:true,dailyLimit:300,weeklyLimit:250});
+    const fullSignup=await newsApi(publicRequest('/api/subscription',publicInput('fixture-http-full-new@example.test')));
+    assert.equal(fullSignup.status,409);assert.deepEqual((await fullSignup.json()).aggregateCapacity,aggregate);
+    const pending=await pendingPublicFixture(db,'http-capacity-pending',new Date(Date.now()+86400000).toISOString(),null);
+    const confirmInput={id:pending.id,token:await tokenFor(pending,active.secret,'confirm'),action:'confirm'};
+    const fullConfirm=await newsApi(publicRequest('/api/subscription/manage',confirmInput));
+    assert.equal(fullConfirm.status,409);assert.deepEqual((await fullConfirm.json()).aggregateCapacity,aggregate);
+    const failedPreferences=await newsApi(publicRequest('/api/subscription/manage',{id:pending.id,token:await tokenFor(pending,active.secret),action:'preferences',locale:'en',topics:['research']}));
+    assert.equal(failedPreferences.status,409);assert.equal((await failedPreferences.json()).status,'preferences-not-saved');
+    const optedOut=await newsApi(publicRequest('/api/subscription/manage',{id:formal[0].id,token:await tokenFor(formal[0],active.secret),action:'unsubscribe'}));
+    assert.equal(optedOut.status,200);assert.equal((await optedOut.json()).status,'unsubscribed');
+    const retry=await newsApi(publicRequest('/api/subscription/manage',confirmInput));
+    assert.equal(retry.status,200);assert.equal((await retry.json()).status,'confirmed');
   } finally {hooks.deregister();delete globalThis.__agUiWebhookRuntimeFixture;}
 });
 test('concurrent acceptance run IDs claim one confirmation and preserve its signed link',async()=>{

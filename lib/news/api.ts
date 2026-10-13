@@ -13,6 +13,7 @@ import { recordMetric, statsSummary } from "./analytics";
 import { equalSecret, escapeHtml, hmac } from "./core";
 import {
   mailReady,
+  mailCapacity,
   mailWebhook,
   manageSubscription,
   subscribe,
@@ -188,7 +189,7 @@ export async function newsApi(request: Request): Promise<Response | null> {
       });
     }
     if (path === "/api/subscription/status" && request.method === "GET")
-      return json({ enabled: mailReady(mailConfig()) });
+      return json(await mailCapacity(database(), mailConfig()));
     if (path === "/api/news" && request.method === "GET") {
       const db = await readyDatabase();
       return json({
@@ -250,23 +251,22 @@ export async function newsApi(request: Request): Promise<Response | null> {
         request.headers.get("cf-connecting-ip") || "unknown",
         setting("SUBSCRIPTION_SECRET"),
       );
-      return json(
-        await subscribe(
+      const result = await subscribe(
           database(),
           await readBody(request, 3000),
           mailConfig(),
           key,
-        ),
-      );
+        );
+      return json(result, result.status === "capacity-full" ? 409 : 200);
     }
-    if (path === "/api/subscription/manage")
-      return json(
-        await manageSubscription(
+    if (path === "/api/subscription/manage") {
+      const result = await manageSubscription(
           database(),
           (await readBody(request, 3000)) as Record<string, unknown>,
           mailConfig(),
-        ),
-      );
+        );
+      return json(result, ["capacity-full", "preferences-not-saved", "confirmation-unavailable"].includes(result.status) ? 409 : 200);
+    }
     return json({ error: "Not found" }, 404);
   } catch (error) {
     return json(
