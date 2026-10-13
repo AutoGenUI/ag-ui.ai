@@ -13,17 +13,17 @@
     "documentsAndCodeIntegrityVerified": true
   },
   "production": {
-    "evidence": "Sites v14 deployment/source and public read-only HTTP checks on 2026-10-13; private environment and subscriber rows not read",
+    "evidence": "Sites v15 source/deployment, authenticated scoped role release and readback, and read-only public HTTP checks; no raw subscriber rows, signatures, mailbox contents or secret values exported",
     "url": "https://ag-ui.ai",
     "platformUrl": "https://ag-ui-ai.channely.chatgpt.site",
     "projectId": "appgprj_6a5dcacfcbb4819193bac2b2104ed926",
-    "publishedVersion": 14,
-    "versionId": "appgprj_6a5dcacfcbb4819193bac2b2104ed926~appgver_c60692fd0b988191b251e97a8b7b285e",
-    "deploymentId": "appgdep_6ace173e29688191b6636567e98e443d",
+    "publishedVersion": 15,
+    "versionId": "appgprj_6a5dcacfcbb4819193bac2b2104ed926~appgver_5439f39b4eec8191923b907739149ead",
+    "deploymentId": "appgdep_6ace27243ef4819182c1308c573c4305",
     "deploymentStatus": "succeeded",
-    "deploymentCompletedAt": "2026-10-13T11:34:36.106757+00:00",
-    "sourceCommit": "32af985205988054ac77619828f0d5ab0112eee0",
-    "sourceTree": "545ab7adf8b2a8f5040ba1c8f8d51f4cdcdebd2b",
+    "deploymentCompletedAt": "2026-10-13T12:42:27.377707+00:00",
+    "sourceCommit": "40a5fe54ce86e261c031321d8ed823dde94ed178",
+    "sourceTree": "20002bc90b075a584c4ab883860684e6bd15d3f1",
     "githubReleaseCommit": "71ff116e033f0295a44415d13acd92bf1c0b97b6",
     "environmentSetRevision": 12,
     "hasMcp": true,
@@ -39,25 +39,25 @@
     "existingSchedulesPreserved": true,
     "automationCountAtObservation": 2,
     "observedOn": "2026-10-13",
-    "githubIterationCommit": "ce64f39c158e72e06549cde97c6810c77a2ff5d8"
+    "githubIterationCommit": "5a4ef6df9ad0de3861aabb54ad0e838de83ade7b"
   },
   "github": {
     "observedOn": "2026-10-13",
     "repository": "AutoGenUI/ag-ui.ai",
     "defaultBranch": "main",
-    "mainAtObservation": "ce64f39c158e72e06549cde97c6810c77a2ff5d8",
-    "evidence": "Subscription polish PR7 and main verify succeeded; separate documentation receipt may follow without redeployment",
+    "mainAtObservation": "5a4ef6df9ad0de3861aabb54ad0e838de83ade7b",
+    "evidence": "PR9 and main required verify succeeded; public receipt documentation follows without another deployment",
     "syncBranch": null,
-    "pullRequest": "https://github.com/AutoGenUI/ag-ui.ai/pull/7",
+    "pullRequest": "https://github.com/AutoGenUI/ag-ui.ai/pull/9",
     "draftAtObservation": false,
     "mergedAtObservation": true,
-    "mergedAt": "2026-10-13T11:32:18Z",
-    "validatedPullRequestHead": "96e7930fc0bcef8ba5c11517440031d01099b430",
-    "validatedTree": "545ab7adf8b2a8f5040ba1c8f8d51f4cdcdebd2b",
+    "mergedAt": "2026-10-13T12:39:14Z",
+    "validatedPullRequestHead": "d5b884f07423e311eca8f052b6ced71fab6404bd",
+    "validatedTree": "20002bc90b075a584c4ab883860684e6bd15d3f1",
     "requiredCheck": "verify",
     "branchProtectionPreserved": true,
     "branchPolicy": "Keep only main after completed iterations; temporary PR branches allowed and cleaned after verified merge",
-    "documentationFollowup": "Public v14 receipt via protected temporary PR; no further Sites deployment and no movement of v1.0.0 tag",
+    "documentationFollowup": "Protected temporary PR records v15 and authorized no-send role release; do not create v1.0.1 before user acceptance",
     "recoverablePreCleanupBundleVerified": true,
     "protectedManagedWorktreeRetained": true
   },
@@ -274,7 +274,7 @@
     "Observe real queued cancellation and additional bounce scenarios only under authorized acceptance",
     "Before authorized production maintenance, refresh account permissions, full DNS/DKIM inventory, actual Sites deployment, D1 migration ledger and backup/restore capability, schedules and provider allowance"
   ],
-  "refreshRule": "Read current GitHub and operations/README.md before maintenance. Subscription polish v14 is dated evidence; docs-only receipts may follow deployed source. GitHub merge does not deploy Sites. Preserve immutable v1.0.0 tag and keep private operational data outside repository.",
+  "refreshRule": "Read live GitHub and operations docs before maintenance. v15 is deployed with scoped historical test-role release verified; docs-only receipts may follow the matching code tree. v1.0.1 requires explicit user acceptance. Preserve immutable v1.0.0 and private operational data.",
   "operationsHandoff": {
     "scope": "Public maintenance documentation; not production account inspection or deployment",
     "index": "docs/operations/README.md",
@@ -650,7 +650,7 @@
   },
   "normalSubscriptionIteration": {
     "recordedOn": "2026-10-13",
-    "phase": "local-verification-complete-awaiting-required-CI-and-Sites",
+    "phase": "deployed-awaiting-user-acceptance",
     "baseMain": "e3df53558f72534a7c6f43909b689b30e8ffb27b",
     "notes": "docs/iterations/2026-10-13-normal-subscription.md",
     "requestedBehavior": [
@@ -662,7 +662,9 @@
     "releaseGate": {
       "plannedTag": "v1.0.1",
       "tagCreated": false,
-      "requiresUserAcceptance": true
+      "requiresUserAcceptance": true,
+      "userAccepted": false,
+      "releaseCreated": false
     },
     "schemaChanged": false,
     "secretsRead": false,
@@ -709,9 +711,79 @@
         "consoleErrors": 0
       },
       "testStability": "61-case suite passed 20 bounded runs after forced reverse-winner preference regression fix; first truncated 60/61 cause remains unconfirmed",
-      "httpStartupLimit": "Local ProxyWorker had one connection-lost 500 immediately after restart; direct owner-rejection 403 and subsequent ready 8/8 passed; no production inference"
+      "httpStartupLimit": "Local ProxyWorker had one connection-lost 500 immediately after restart; direct owner-rejection 403 and subsequent ready 8/8 passed; no production inference",
+      "links": "passed in PR and main required verify"
     },
     "ownerStatusRead": "Authenticated sanitized status only; configured test role was unsubscribed, four historical deliveries delivered, no raw subscriber rows, email, signatures or secrets read",
-    "productionRoleRelease": "pending-deployment"
+    "productionRoleRelease": {
+      "status": "released",
+      "recipientRole": "public",
+      "independentReadback": "public",
+      "realMailSent": false
+    },
+    "githubCodeCommit": "5a4ef6df9ad0de3861aabb54ad0e838de83ade7b",
+    "githubTree": "20002bc90b075a584c4ab883860684e6bd15d3f1",
+    "pullRequest": "https://github.com/AutoGenUI/ag-ui.ai/pull/9",
+    "requiredVerify": {
+      "status": "passed",
+      "url": "https://github.com/AutoGenUI/ag-ui.ai/actions/runs/38398627667/job/115300182530"
+    },
+    "mainVerify": {
+      "status": "passed",
+      "url": "https://github.com/AutoGenUI/ag-ui.ai/actions/runs/38398882271/job/115301067921"
+    },
+    "sites": {
+      "version": 15,
+      "versionId": "appgprj_6a5dcacfcbb4819193bac2b2104ed926~appgver_5439f39b4eec8191923b907739149ead",
+      "sourceCommit": "40a5fe54ce86e261c031321d8ed823dde94ed178",
+      "sourceTreeMatchesGithub": true,
+      "deploymentId": "appgdep_6ace27243ef4819182c1308c573c4305",
+      "status": "succeeded",
+      "completedAt": "2026-10-13T12:42:27.377707+00:00",
+      "environmentRevision": 12,
+      "hasMcp": true,
+      "existingAutomations": 2
+    },
+    "productionDataChanges": "Only owner-authorized configured recipient role release; no automatic opt-in, mail send, history deletion, quota reset or unrelated subscriber changes",
+    "publicHttp": [
+      {
+        "path": "/zh/subscribe",
+        "http": 200
+      },
+      {
+        "path": "/en/subscribe",
+        "http": 200
+      },
+      {
+        "path": "/zh/feed.xml",
+        "http": 200
+      },
+      {
+        "path": "/en/feed.xml",
+        "http": 200
+      },
+      {
+        "path": "/feed.xml",
+        "http": 200
+      },
+      {
+        "path": "/api/subscription/status",
+        "http": 200,
+        "publicAggregate": {
+          "enabled": true,
+          "confirmedCount": 1,
+          "capacity": 250,
+          "remaining": 249,
+          "full": false,
+          "dailyLimit": 300,
+          "weeklyLimit": 250
+        }
+      },
+      {
+        "path": "/api/admin",
+        "http": 403
+      }
+    ],
+    "productionBrowserLimit": "No new production DOM claim; previous agent browser navigation blocked. Synthetic desktop/mobile browser proof and native deployment/HTTP evidence are recorded separately."
   }
 }
