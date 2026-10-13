@@ -35,7 +35,6 @@ function SubscriptionView({ locale, initialLink, onManagementUrl }: {
   onManagementUrl: (id: string, token: string) => void;
 }) {
   const zh = locale === "zh";
-  const [confirmationLanding] = useState(initialLink?.action === "confirm");
   const [autoAttempted, setAutoAttempted] = useState(false);
   const [manage, setManage] = useState<ManageLink | null>(initialLink),
     [subscriber, setSubscriber] = useState<SubscriberView | null>(null),
@@ -266,7 +265,18 @@ function SubscriptionView({ locale, initialLink, onManagementUrl }: {
           <h2>{manage ? zh ? "你的邮件订阅" : "Your email subscription" : zh ? "每周精选，送达邮箱。" : "A weekly perspective, by email."}</h2>
           <p>{zh ? "选择语言与主题，精选事件与研究。仅在有实质更新时发送。" : "Choose a language and topics for selected events and research. No empty editions."}</p>
         </header>
-        {!confirmationLanding && form}
+        <section className="n-subscription-capacity" aria-label={zh ? "订阅名额" : "Subscription availability"} aria-busy={capacityState === "loading"}>
+          {capacity ? <>
+            <div className="n-subscription-capacity-head">
+              <div><span className="n-subscription-capacity-label">{zh ? "已确认订阅 / 当前容量" : "Confirmed / capacity"}</span><strong>{capacity.confirmedCount}<span> / {capacity.capacity}</span></strong><span className="n-subscription-capacity-label">{zh ? "位订阅者 · 本站设置" : "subscribers · site limit"}</span></div>
+              <span className={`n-subscription-remaining${capacity.full ? " is-full" : ""}`}>{capacity.full ? zh ? "名额已满" : "Capacity reached" : zh ? `剩余 ${capacity.remaining} 个名额` : `${capacity.remaining} places remaining`}</span>
+            </div>
+            <progress max={capacity.capacity} value={Math.min(capacity.confirmedCount, capacity.capacity)} aria-label={zh ? "已确认订阅人数" : "Confirmed subscribers"} />
+            <p>{zh ? `仅确认成功占名额。免费限额 ${capacity.dailyLimit} 封/天，周报预算 ${capacity.weeklyLimit} 封/天；确认邮件共用额度，投递可能延迟。` : `Only confirmed subscriptions occupy places. Daily allowance: ${capacity.dailyLimit} emails, including confirmations; digest budget: ${capacity.weeklyLimit}/day. Delivery may be delayed.`}</p>
+          </> : <p>{capacityState === "loading" ? zh ? "正在读取已确认人数与剩余名额…" : "Loading confirmed subscribers and remaining places…" : zh ? "订阅人数暂时未知，请重试读取。" : "Subscriber counts are temporarily unknown. Please retry."}</p>}
+          {capacityState === "error" && <p className="n-subscription-inline-error" role="status">{zh ? "名额未能更新，数字为上次结果；仍可管理已生效订阅。" : "Availability failed to refresh; figures are from the last check. Active subscriptions remain manageable."}</p>}
+          <button type="button" className="n-subscription-secondary" disabled={busy !== null || capacityState === "loading"} onClick={() => { setCapacityState("loading"); refreshCapacity(); }}>{capacityState === "loading" ? zh ? "正在刷新…" : "Refreshing…" : zh ? "刷新名额" : "Refresh availability"}</button>
+        </section>
         {display && (() => {
           const [icon, title, body] = content(display);
           return <section className={`n-subscription-notice n-subscription-${display.kind}`} ref={noticeRef} tabIndex={-1} role={errorCard ? "alert" : "status"} aria-live={errorCard ? "assertive" : "polite"} aria-atomic="true">
@@ -280,20 +290,8 @@ function SubscriptionView({ locale, initialLink, onManagementUrl }: {
             </div>
           </section>;
         })()}
-        {confirmationLanding && form}
+        {form}
         {manage && !confirmationMode && (subscriber?.status === "confirmed" || subscriber?.status === "pending") && <section id="unsubscribe" className="n-subscription-form n-subscription-unsubscribe-area" aria-label={zh ? "结束邮件订阅" : "Stop email updates"}><div><h3>{zh ? "取消邮件订阅" : "Cancel email updates"}</h3><p>{zh ? "停止后续邮件；仍可使用 RSS。" : "Stop future email. RSS remains available."}</p></div><button type="button" className="n-subscription-secondary n-subscription-unsubscribe-button" disabled={formLocked} onClick={() => void submit("unsubscribe")}>{busy === "unsubscribe" ? zh ? "正在退订…" : "Unsubscribing…" : subscriber.status === "pending" ? zh ? "取消订阅申请" : "Cancel subscription request" : zh ? "退订所有邮件" : "Unsubscribe from all email"}</button></section>}
-        <section className="n-subscription-capacity" aria-label={zh ? "订阅名额" : "Subscription availability"} aria-busy={capacityState === "loading"}>
-          {capacity ? <>
-            <div className="n-subscription-capacity-head">
-              <div><span className="n-subscription-capacity-label">{zh ? "已确认订阅 / 当前容量" : "Confirmed / capacity"}</span><strong>{capacity.confirmedCount}<span> / {capacity.capacity}</span></strong><span className="n-subscription-capacity-label">{zh ? "位订阅者 · 本站设置" : "subscribers · site limit"}</span></div>
-              <span className={`n-subscription-remaining${capacity.full ? " is-full" : ""}`}>{capacity.full ? zh ? "名额已满" : "Capacity reached" : zh ? `剩余 ${capacity.remaining} 个名额` : `${capacity.remaining} places remaining`}</span>
-            </div>
-            <progress max={capacity.capacity} value={Math.min(capacity.confirmedCount, capacity.capacity)} aria-label={zh ? "已确认订阅人数" : "Confirmed subscribers"} />
-            <p>{zh ? `仅确认成功占名额。免费限额 ${capacity.dailyLimit} 封/天，周报预算 ${capacity.weeklyLimit} 封/天；确认邮件共用额度，投递可能延迟。` : `Only confirmed subscriptions occupy places. Daily allowance: ${capacity.dailyLimit} emails, including confirmations; digest budget: ${capacity.weeklyLimit}/day. Delivery may be delayed.`}</p>
-          </> : <p>{capacityState === "loading" ? zh ? "正在读取已确认人数与剩余名额…" : "Loading confirmed subscribers and remaining places…" : zh ? "订阅人数暂时未知，请重试读取。" : "Subscriber counts are temporarily unknown. Please retry."}</p>}
-          {capacityState === "error" && <p className="n-subscription-inline-error" role="status">{zh ? "名额未能更新，数字为上次结果；仍可管理已生效订阅。" : "Availability failed to refresh; figures are from the last check. Active subscriptions remain manageable."}</p>}
-          <button type="button" className="n-subscription-secondary" disabled={busy !== null || capacityState === "loading"} onClick={() => { setCapacityState("loading"); refreshCapacity(); }}>{capacityState === "loading" ? zh ? "正在刷新…" : "Refreshing…" : zh ? "刷新名额" : "Refresh availability"}</button>
-        </section>
         <p className="n-small n-subscription-disclosure">{zh ? "邮件由 Brevo 投递。当前匿名打开与点击统计不关联具体联系人，但仍可能包含像素与链接跟踪；本站不依据这些统计决定发信或判断已读。" : "Email is delivered by Brevo. Anonymous open and click statistics are not associated with individual contacts, but tracking pixels and tracked links may remain. We do not use these statistics to decide whether to send email or as proof that an email was read."}</p>
       </div>
       <aside className="n-subscription-sidebar" aria-label={zh ? "RSS 阅读方式" : "Read with RSS"}>

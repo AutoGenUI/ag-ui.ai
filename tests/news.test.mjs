@@ -203,8 +203,14 @@ test('concurrent retries preserve a legacy live confirmation even when the deliv
   for(const deliveryStatus of ['submitted','delivered','failed','cancelled',null]) {
     const db=database(),s=await pendingPublicFixture(db,`live-${deliveryStatus}`,'2026-10-12T12:00:00.000Z',deliveryStatus);
     const token=await tokenFor(s,active.secret,'confirm');
+    const batch=db.batch;let enter,release,paused=false;
+    const entered=new Promise(resolve=>{enter=resolve;}),released=new Promise(resolve=>{release=resolve;});
+    db.batch=async statements=>{if(!paused){paused=true;enter();await released;}return batch(statements);};
     await mockedMail(async sent=>{
-      await Promise.all([subscribe(db,publicInput(s.email),active,'fixture-live-a'),subscribe(db,publicInput(s.email,{locale:'en'}),active,'fixture-live-b')]);
+      // Force the competing language request to win, instead of depending on
+      // WebCrypto completing the first HMAC before the second one.
+      const first=subscribe(db,publicInput(s.email),active,'fixture-live-a');await entered;
+      await subscribe(db,publicInput(s.email,{locale:'en',topics:['research']}),active,'fixture-live-b');release();await first;
       assert.equal(sent.length,deliveryStatus?0:1);
       const current=await db.prepare('SELECT * FROM subscribers').first();
       assert.equal(current.token_expires,s.token_expires);assert.equal(current.locale,s.locale);assert.equal(current.topics,s.topics);
@@ -547,6 +553,138 @@ async function retiredAcceptanceFixture(db,patch={}) {
     .bind(`test:prior-acceptance:${s.id}:${kind}`,s.id,kind,`fixture-old-${kind}`,now,now,s.is_test).run();
   return s;
 }
+const releaseInput=()=>({action:'release',expectedRecipient:acceptance.testRecipient});
+test('owner release sends nothing, preserves test history and quota, and requires ordinary public confirmation',async(t)=>{
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-10-13T01:00:00.000Z')});
+  const db=database();await seedDatabase(db);
+  const s=await retiredAcceptanceFixture(db,{status:'confirmed'}),oldManage=await tokenFor(s,active.secret),oldConfirm=await tokenFor(s,active.secret,'confirm');
+  await db.prepare("UPDATE subscribers SET confirmed_at=? WHERE id=?").bind(s.created_at,s.id).run();
+  const history=(await db.prepare('SELECT * FROM deliveries ORDER BY id').all()).results;
+  await db.prepare("INSERT INTO deliveries(id,subscriber_id,kind,status,created_at,updated_at,is_test) VALUES('fixture-release-old-queue',?,'confirmation','queued',?,?,1)").bind(s.id,s.created_at,s.created_at).run();
+  await db.prepare('INSERT INTO mail_quota(day,count) VALUES(?,4)').bind(singaporeDay()).run();
+  const publicConfig={...acceptance,enabled:true};
+  await mockedMail(async sent=>{
+    const result=await operate(db,'mail-test',releaseInput(),publicConfig);
+    assert.equal(result.status,'released');assert.equal(result.recipientRole,'public');assert.equal(result.publicEnabled,true);
+    assert.equal(result.subscriberStatus,null);assert.equal(result.activeTestRunId,null);assert.deepEqual(result.deliveries,[]);
+    assert.doesNotMatch(JSON.stringify(result),/example\.test|email|token|subscriber_id/);
+    const released=await db.prepare('SELECT * FROM subscribers').first();
+    assert.equal(released.id,s.id);assert.equal(released.is_test,0);assert.equal(released.status,'unsubscribed');assert.equal(released.confirmed_at,null);
+    assert.equal(released.created_at,'2026-10-13T01:00:00.001Z');assert.ok(released.token_expires>s.token_expires);
+    assert.equal(released.locale,s.locale);assert.equal(released.topics,s.topics);
+    for(const row of history) assert.deepEqual(await db.prepare('SELECT * FROM deliveries WHERE id=?').bind(row.id).first(),row);
+    const cancelled=await db.prepare("SELECT status,is_test FROM deliveries WHERE id='fixture-release-old-queue'").first();assert.equal(cancelled.status,'cancelled');assert.equal(cancelled.is_test,1);
+    assert.equal((await db.prepare('SELECT count FROM mail_quota').first()).count,4);assert.equal(sent.length,0);assert.equal((await mailCapacity(db,publicConfig)).confirmedCount,0);
+    for(const action of ['read','preferences','unsubscribe']) await assert.rejects(()=>manageSubscription(db,{id:s.id,token:oldManage,action,locale:'en',topics:['research']},publicConfig),/Invalid or expired link/);
+    await assert.rejects(()=>manageSubscription(db,{id:s.id,token:oldConfirm,action:'confirm'},publicConfig),/Invalid or expired link/);
+    assert.equal((await mailTest(db,releaseInput(),publicConfig)).status,'already-public');assert.deepEqual(await db.prepare('SELECT * FROM subscribers').first(),released);
+    for(const action of ['restart','confirmation','weekly']) await assert.rejects(()=>mailTest(db,{action,runId:'release-blocks-test'},publicConfig),/production subscriber/);
+    assert.equal((await mailTest(db,{action:'status'},publicConfig)).recipientRole,'public');assert.equal(sent.length,0);
+    await subscribe(db,publicInput(s.email),publicConfig,'fixture-release-public-signup');assert.equal(sent.length,1);
+    assert.equal((await db.prepare('SELECT is_test,status FROM subscribers').first()).is_test,0);assert.equal((await mailCapacity(db,publicConfig)).confirmedCount,0);
+    const confirmed=await confirmFromMail(db,sent[0]);assert.equal(confirmed.subscriptionType,'public');assert.equal(confirmed.status,'confirmed');
+    assert.equal((await mailCapacity(db,publicConfig)).confirmedCount,1);assert.equal((await mailCapacity(db,publicConfig)).remaining,249);
+    await mailWebhook(db,{event:'unsubscribed',email:s.email,'message-id':'fixture-old-weekly','X-Mailin-custom':`delivery:test:prior-acceptance:${s.id}:weekly`});
+    assert.equal((await db.prepare('SELECT status FROM subscribers').first()).status,'confirmed');
+    assert.equal((await queueDigest(db,'2026-10-12')).queued,1);await drainQueue(db,publicConfig);
+    assert.equal(sent.length,2);assert.equal(sent[1].to[0].email,s.email);assert.doesNotMatch(sent[1].subject,/Acceptance test|验收测试/);
+    assert.equal((await db.prepare('SELECT count FROM mail_quota').first()).count,6);
+    assert.equal((await db.prepare('SELECT count(*) AS n FROM deliveries WHERE is_test=1').first()).n,3);
+    const confirmedBefore=await db.prepare('SELECT * FROM subscribers').first();
+    assert.equal((await mailTest(db,releaseInput(),publicConfig)).status,'already-public');assert.deepEqual(await db.prepare('SELECT * FROM subscribers').first(),confirmedBefore);assert.equal(sent.length,2);
+  },count=>Response.json({messageId:`fixture-release-public-${count}`}));
+});
+test('release needs only the exact configured target, accepts no sending address arguments and never creates a subscriber',async(t)=>{
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-10-13T01:00:00.000Z')});
+  const db=database(),s=await retiredAcceptanceFixture(db),before=await db.prepare('SELECT * FROM subscribers').first();
+  await mockedMail(async sent=>{
+    for(const action of ['status','restart','confirmation','weekly']) for(const key of ['expectedRecipient','email']) await assert.rejects(()=>mailTest(db,{action,runId:'release-address-rejected',[key]:acceptance.testRecipient},acceptance));
+    for(const args of [{action:'release'},{...releaseInput(),expectedRecipient:'different@example.test'},{...releaseInput(),email:acceptance.testRecipient},{...releaseInput(),runId:'release-extra-run'}]) await assert.rejects(()=>mailTest(db,args,acceptance));
+    assert.deepEqual(await db.prepare('SELECT * FROM subscribers').first(),before);assert.equal(sent.length,0);
+    assert.equal((await mailTest(db,releaseInput(),{...config,testRecipient:acceptance.testRecipient})).status,'released');
+    assert.equal((await db.prepare('SELECT is_test FROM subscribers WHERE id=?').bind(s.id).first()).is_test,0);assert.equal(sent.length,0);
+    const missing=database();assert.equal((await mailTest(missing,releaseInput(),acceptance)).status,'test-recipient-not-found');
+    assert.equal((await missing.prepare('SELECT count(*) AS n FROM subscribers').first()).n,0);assert.equal((await missing.prepare('SELECT count(*) AS n FROM editions').first()).n,0);
+    await assert.rejects(()=>mailTest(missing,releaseInput(),{...acceptance,testRecipient:''}),/server-configured/);
+    assert.equal(sent.length,0);
+  });
+});
+test('release refuses suppression and unresolved submissions and its transaction repeats those guards',async(t)=>{
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-10-13T01:00:00.000Z')});
+  for(const reason of ['suppressed','sending','uncertain','hardbounce','spam','invalid','sending-race','suppression-race','hardbounce-race']) {
+    const db=database(),s=await retiredAcceptanceFixture(db);
+    const mutate=async()=>{if(reason.startsWith('suppression')||reason==='suppressed') await db.prepare("UPDATE subscribers SET status='suppressed' WHERE id=?").bind(s.id).run();
+      else if(reason.startsWith('sending')||reason==='uncertain') await db.prepare('UPDATE deliveries SET status=? WHERE kind=\'weekly\'').bind(reason==='uncertain'?'uncertain':'sending').run();
+      else await db.prepare("UPDATE deliveries SET status='failed',error=? WHERE kind='weekly'").bind(reason.split('-')[0]).run();};
+    if(reason.endsWith('race')) {const batch=db.batch;let mutated=false;db.batch=async statements=>{if(!mutated){mutated=true;await mutate();}return batch(statements);};}
+    else await mutate();
+    await mockedMail(async sent=>{
+      const result=await mailTest(db,releaseInput(),{...acceptance,enabled:true});
+      assert.notEqual(result.status,'released',reason);assert.equal(result.recipientRole,'test');assert.equal(sent.length,0);
+      const current=await db.prepare('SELECT * FROM subscribers').first();assert.equal(current.is_test,1);assert.equal(current.created_at,s.created_at);assert.equal(current.token_expires,s.token_expires);
+      assert.equal((await db.prepare("SELECT count(*) AS n FROM editions WHERE substr(id,1,length('test-release:'))='test-release:'").first()).n,0);
+      assert.equal((await db.prepare('SELECT count(*) AS n FROM mail_quota').first()).n,0);
+    });
+  }
+});
+test('concurrent releases have one atomic winner and later replays leave the public epoch unchanged',async(t)=>{
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-10-13T01:00:00.000Z')});
+  const db=database();await retiredAcceptanceFixture(db);
+  await mockedMail(async sent=>{
+    const results=await Promise.all([mailTest(db,releaseInput(),acceptance),mailTest(db,releaseInput(),acceptance)]);
+    assert.equal(results.filter(result=>result.status==='released').length,1);assert.equal(results.filter(result=>result.status==='already-public').length,1);
+    assert.equal((await db.prepare('SELECT count(*) AS n FROM editions').first()).n,1);assert.equal(sent.length,0);
+    const before=await db.prepare('SELECT * FROM subscribers').first();
+    t.mock.timers.tick(86400000);assert.equal((await mailTest(db,releaseInput(),acceptance)).status,'already-public');
+    assert.deepEqual(await db.prepare('SELECT * FROM subscribers').first(),before);assert.equal(sent.length,0);
+  });
+});
+test('release invalidates preloaded test producers, claims and signed management calls',async(t)=>{
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-10-13T01:00:00.000Z')});
+  for(const stage of ['insert','claim','confirm','preferences','unsubscribe']) {
+    const db=database();await seedDatabase(db);
+    const s=await retiredAcceptanceFixture(db,{status:stage==='confirm'?'pending':'confirmed'}),oldManage=await tokenFor(s,active.secret);
+    let enter,release,paused=false;
+    const entered=new Promise(resolve=>{enter=resolve;}),released=new Promise(resolve=>{release=resolve;});
+    const prepare=db.prepare;
+    db.prepare=sql=>{const statement=prepare(sql);statement.fixtureSql=sql;
+      if(stage==='claim') {const first=statement.first;statement.first=async()=>{if(!paused&&sql.startsWith("UPDATE deliveries SET status='sending'")){paused=true;enter();await released;}return first.call(statement);};}
+      if(stage==='confirm'||stage==='preferences') {const run=statement.run;statement.run=async()=>{if(!paused&&sql.startsWith(stage==='confirm'?"UPDATE subscribers SET status='confirmed'":"UPDATE subscribers SET locale=?,topics=? WHERE id=? AND status='confirmed'")){paused=true;enter();await released;}return run.call(statement);};}
+      return statement;};
+    if(stage==='insert'||stage==='unsubscribe') {const batch=db.batch;db.batch=async statements=>{if(!paused&&statements.some(statement=>statement.fixtureSql.startsWith(stage==='insert'?'INSERT OR IGNORE INTO editions(id,payload,created_at,is_test) SELECT':"UPDATE subscribers SET status='unsubscribed'"))){paused=true;enter();await released;}return batch(statements);};}
+    await mockedMail(async sent=>{
+      const stale=['insert','claim'].includes(stage)?mailTest(db,{action:'weekly',runId:'release-racing-legacy'},acceptance)
+        :manageSubscription(db,{id:s.id,token:stage==='confirm'?await tokenFor(s,active.secret,'confirm'):oldManage,action:stage,locale:'en',topics:['research']},acceptance);
+      const rejected=['insert','claim'].includes(stage)?null:assert.rejects(stale,/Invalid or expired link/);
+      await entered;
+      assert.equal((await mailTest(db,releaseInput(),{...acceptance,enabled:true})).status,'released');assert.equal(sent.length,0);
+      await subscribe(db,publicInput(s.email),{...acceptance,enabled:true},'fixture-release-race-public');await confirmFromMail(db,sent[0]);
+      const before=await db.prepare('SELECT * FROM subscribers').first();
+      release();if(rejected) await rejected;else assert.equal((await stale).submitted,0);
+      assert.deepEqual(await db.prepare('SELECT * FROM subscribers').first(),before);assert.equal(sent.length,1);
+      await drainQueue(db,{...acceptance,enabled:true});assert.equal(sent.length,1);
+      const old=await db.prepare('SELECT status FROM deliveries WHERE id=?').bind(`test:release-racing-legacy:${s.id}:weekly`).first();
+      if(stage==='insert') assert.equal(old,null);else if(stage==='claim') assert.equal(old.status,'cancelled');
+    });
+  }
+});
+test('release reads the latest delivery clock atomically and historical hard failures still suppress the new public role',async(t)=>{
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-10-13T01:00:00.000Z')});
+  const db=database(),s=await retiredAcceptanceFixture(db),batch=db.batch;
+  const lateTime='2026-10-13T01:00:02.000Z';let inserted=false;
+  db.batch=async statements=>{if(!inserted){inserted=true;await db.prepare("INSERT INTO deliveries(id,subscriber_id,kind,status,created_at,updated_at,is_test) VALUES('fixture-release-late-history',?,'weekly','delivered',?,?,1)").bind(s.id,lateTime,lateTime).run();}return batch(statements);};
+  await mockedMail(async sent=>{
+    assert.equal((await mailTest(db,releaseInput(),acceptance)).status,'released');assert.equal(sent.length,0);
+    assert.equal((await db.prepare('SELECT created_at FROM subscribers').first()).created_at,'2026-10-13T01:00:02.001Z');
+    await subscribe(db,publicInput(s.email),{...acceptance,enabled:true},'fixture-release-late-public');await confirmFromMail(db,sent[0]);
+    await mailWebhook(db,{event:'unsubscribed',email:s.email,'X-Mailin-custom':'delivery:fixture-release-late-history'});
+    assert.equal((await db.prepare('SELECT status FROM subscribers').first()).status,'confirmed');
+    await mailWebhook(db,{event:'hardBounce',email:s.email,'X-Mailin-custom':'delivery:fixture-release-late-history'});
+    assert.equal((await db.prepare('SELECT status FROM subscribers').first()).status,'suppressed');
+    assert.equal((await mailTest(db,releaseInput(),acceptance)).status,'already-public');assert.equal((await db.prepare('SELECT status FROM subscribers').first()).status,'suppressed');
+    assert.equal(sent.length,1);
+  });
+});
 test('explicit acceptance restart sends nothing, preserves history and invalidates old links and run IDs',async(t)=>{
   t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-10-12T01:00:00.000Z')});
   const db=database();await seedDatabase(db);
@@ -863,6 +1001,11 @@ test('webhook HTTP route accepts the configured Bearer and rejects other credent
     assert.equal(admin.status,403);assert.equal(state.databaseCalls,1);
     const mcp=await newsApi(new Request('https://fixture.example.test/mcp',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/call',params:{name:'newsroom_write',arguments:JSON.parse(restartBody)}})}));
     assert.equal(mcp.status,403);assert.equal(state.databaseCalls,1);
+    const releaseBody={operation:'mail-test',arguments:releaseInput()};
+    const anonymousRelease=await newsApi(new Request('https://fixture.example.test/api/admin',{method:'POST',headers:{origin:'https://fixture.example.test','content-type':'application/json'},body:JSON.stringify(releaseBody)}));
+    assert.equal(anonymousRelease.status,403);assert.equal(state.databaseCalls,1);
+    const anonymousReleaseMcp=await newsApi(new Request('https://fixture.example.test/mcp',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:2,method:'tools/call',params:{name:'newsroom_write',arguments:releaseBody}})}));
+    assert.equal(anonymousReleaseMcp.status,403);assert.equal(state.databaseCalls,1);
     state.settings={EMAIL_ENABLED:'true',BREVO_DOMAIN_VERIFIED:'true',EMAIL_ACCEPTANCE_PASSED:'true',BREVO_API_KEY:active.apiKey,BREVO_SENDER_EMAIL:active.sender,SUBSCRIPTION_SECRET:active.secret};
     state.secret='fixture-only-not-a-production-webhook-secret';state.allowOrigin=true;
     const formal=await capacityFixture(db,250,0,'http-capacity');
