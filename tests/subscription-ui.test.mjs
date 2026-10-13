@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { parseSubscriptionCapacity, parseSubscriberView, subscriptionOutcome } from '../lib/news/subscription-ui.ts';
+import { parseSubscriptionCapacity, parseSubscriberView, subscriptionOutcome, subscriptionLocaleHref } from '../lib/news/subscription-ui.ts';
 
 const capacity={enabled:true,confirmedCount:250,capacity:250,remaining:0,full:true,dailyLimit:300,weeklyLimit:250};
-const subscriber=(status,patch={})=>({status,locale:'en',topics:'["research"]',token:'a'.repeat(64),...patch});
+const subscriber=(status,patch={})=>({status,subscriptionType:'public',locale:'en',topics:'["research"]',token:'a'.repeat(64),...patch});
 
 test('capacity rejection never becomes a successful signup or confirmation',()=>{
   for(const action of ['signup','confirm']) {
@@ -54,4 +54,31 @@ test('server reads must contain recognized status and usable saved preferences',
   assert.equal(parseSubscriptionCapacity({...capacity,remaining:-1}),null);
   assert.equal(parseSubscriptionCapacity({enabled:true}),null);
   assert.deepEqual(parseSubscriberView(subscriber('unsubscribed')).topics,['research']);
+});
+test('signed subscription identity distinguishes tests from public subscriptions',()=>{
+  const result=subscriptionOutcome('confirm',200,subscriber('confirmed',{subscriptionType:'test'}));
+  assert.equal(result.kind,'confirmed');assert.equal(result.subscriber.subscriptionType,'test');
+  assert.equal(parseSubscriberView(subscriber('confirmed')).subscriptionType,'public');
+  for(const subscriptionType of [undefined,'unknown',true])
+    assert.equal(subscriptionOutcome('confirm',200,subscriber('confirmed',{subscriptionType})).kind,'error');
+});
+test('confirmation and management links preserve their capability when switching languages',()=>{
+  const id='00000000-0000-4000-8000-000000000001',token='a'.repeat(64);
+  for(const action of ['confirm',null]) {
+    const query=new URLSearchParams({id,token});if(action)query.set('action',action);
+    const href=subscriptionLocaleHref('/en/subscribe','en','zh',query.toString());
+    const url=new URL(href,'https://example.test');
+    assert.equal(url.pathname,'/zh/subscribe');
+    assert.equal(url.searchParams.get('id'),id);assert.equal(url.searchParams.get('token'),token);
+    assert.equal(url.searchParams.get('action'),action);
+    assert.equal(subscriptionLocaleHref('/zh/subscribe','zh','en',url.searchParams.toString()),`/en/subscribe?${query}`);
+  }
+});
+test('language navigation never carries signed subscription query to another page',()=>{
+  const query='id=synthetic-reader&token=synthetic-token&action=confirm&source=synthetic';
+  for(const path of ['/en','/en/news','/en/news/example','/en/subscribe/other'])
+    assert.equal(subscriptionLocaleHref(path,'en','zh',query),path.replace('/en','/zh'));
+  assert.equal(subscriptionLocaleHref('/enough','en','zh',query),'/zh');
+  assert.equal(subscriptionLocaleHref(null,'en','zh',query),'/zh');
+  assert.equal(subscriptionLocaleHref('/en/subscribe','en','zh','source=synthetic'),'/zh/subscribe');
 });

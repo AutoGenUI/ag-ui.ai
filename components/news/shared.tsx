@@ -94,8 +94,8 @@ export function SubscribeBand({ locale }: { locale: Locale }) {
         </h2>
         <p>
           {locale === "zh"
-            ? "用一份精选，串起生成式 UI 的一周。RSS 已开放，邮件周报待启用。"
-            : "A considered view of the week in Generative UI. RSS is live; email delivery is coming."}
+            ? "用一份精选，串起生成式 UI 的一周。通过 RSS 阅读，或确认邮箱后接收周报。"
+            : "A considered view of the week in Generative UI. Read with RSS, or confirm your email for the digest."}
         </p>
       </div>
       <Link className="n-button" href={`/${locale}/subscribe`}>

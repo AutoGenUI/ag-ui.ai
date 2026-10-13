@@ -11,6 +11,7 @@ export type SubscriptionCapacity = {
 };
 export type SubscriberView = {
   status: "pending" | "confirmed" | "unsubscribed" | "suppressed";
+  subscriptionType: "public" | "test";
   locale: Locale;
   topics: Category[];
   token?: string;
@@ -27,6 +28,18 @@ function record(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value)
     ? value as Record<string, unknown> : null;
 }
+// Signed subscription links survive a language change only on their own page.
+export function subscriptionLocaleHref(pathname: string | null, locale: Locale, alternate: Locale, search: string) {
+  const href = pathname === `/${locale}` || pathname?.startsWith(`/${locale}/`)
+    ? pathname.replace(`/${locale}`, `/${alternate}`) : `/${alternate}`;
+  if (pathname !== `/${locale}/subscribe`) return href;
+  const query = new URLSearchParams(search), signed = new URLSearchParams();
+  for (const key of ["id", "token", "action"]) {
+    const value = query.get(key);
+    if (value) signed.set(key, value);
+  }
+  return signed.size ? `${href}?${signed}` : href;
+}
 export function parseSubscriptionCapacity(value: unknown): SubscriptionCapacity | null {
   const v = record(value);
   if (!v || typeof v.enabled !== "boolean" || typeof v.full !== "boolean") return null;
@@ -42,6 +55,7 @@ export function parseSubscriptionCapacity(value: unknown): SubscriptionCapacity 
 export function parseSubscriberView(value: unknown): SubscriberView | null {
   const v = record(value);
   if (!v || !["pending", "confirmed", "unsubscribed", "suppressed"].includes(String(v.status)) ||
+    (v.subscriptionType !== "public" && v.subscriptionType !== "test") ||
     (v.locale !== "zh" && v.locale !== "en")) return null;
   let topics: unknown = v.topics;
   if (typeof topics === "string") {
@@ -49,7 +63,7 @@ export function parseSubscriberView(value: unknown): SubscriberView | null {
   }
   if (!Array.isArray(topics) || !topics.length || topics.some(topic => !categories.includes(topic))) return null;
   return {
-    status: v.status as SubscriberView["status"], locale: v.locale,
+    status: v.status as SubscriberView["status"], subscriptionType: v.subscriptionType, locale: v.locale,
     topics: [...new Set(topics)] as Category[],
     ...(typeof v.token === "string" && /^[a-f0-9]{64}$/.test(v.token) ? { token: v.token } : {}),
   };

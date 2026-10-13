@@ -169,17 +169,19 @@ export async function manageSubscription(
     preferenceApplied = changed.meta.changes > 0;
   }
   const current = await db
-    .prepare(`SELECT locale,topics,status FROM subscribers WHERE id=? AND created_at=?${action === "confirm" ? " AND token_expires=?" : ""}`)
+    .prepare(`SELECT locale,topics,status,is_test FROM subscribers WHERE id=? AND created_at=?${action === "confirm" ? " AND token_expires=?" : ""}`)
     .bind(id, s.created_at, ...(action === "confirm" ? [s.token_expires] : []))
-    .first<{ locale: string; topics: string; status: string }>();
+    .first<{ locale: string; topics: string; status: string; is_test: number }>();
   if (!current) throw new Error("Invalid or expired link");
+  const { is_test, ...subscriber } = current;
+  const subscriptionType = is_test === 1 ? "test" : "public";
   if (action === "confirm" && current.status === "pending" && s.is_test !== 1)
-    return capacityFull(db, c);
+    return { ...(await capacityFull(db, c)), subscriptionType };
   if (action === "confirm" && current.status !== "confirmed")
-    return { status: "confirmation-unavailable", subscriberStatus: current.status };
+    return { status: "confirmation-unavailable", subscriberStatus: current.status, subscriptionType };
   if (action === "preferences" && !preferenceApplied)
-    return { status: "preferences-not-saved", subscriberStatus: current.status };
-  return { ...current, token: await tokenFor(s, c.secret) };
+    return { status: "preferences-not-saved", subscriberStatus: current.status, subscriptionType };
+  return { ...subscriber, subscriptionType, token: await tokenFor(s, c.secret) };
 }
 export async function queueDigest(db: Database, week: string) {
   if (
@@ -469,9 +471,12 @@ async function deliverQueued(
           ? "确认订阅 AG-UI.AI"
           : "Confirm your AG-UI.AI subscription";
       const link = `https://ag-ui.ai/${d.locale}/subscribe?action=confirm&id=${s.id}&token=${await tokenFor(s, c.secret, "confirm")}`;
-      const confirmLabel = d.locale === "zh" ? "确认邮箱（24 小时内有效）" : "Confirm email (valid for 24 hours)";
-      html = `<p>${subject}</p><p><a href="${escapeHtml(link)}">${confirmLabel}</a></p>${copyableUrl(link)}`;
-      text = `${subject}\n\n${confirmLabel}\n${copyInstruction}\n${link}`;
+      const confirmLabel = d.locale === "zh" ? "打开确认页（24 小时内有效）" : "Open the confirmation page (valid for 24 hours)";
+      const confirmSteps = d.locale === "zh"
+        ? "第一步：打开下面的确认页。第二步：在页面点击“确认订阅”，看到成功提示后才完成邮箱确认。仅点击邮件链接或打开页面不会确认订阅；无需在同一设备操作。"
+        : "Step 1: Open the confirmation page below. Step 2: Select “Confirm subscription” on that page and wait for the success message. Clicking this email link or opening the page does not confirm your subscription. You can complete both steps on another device.";
+      html = `<p>${subject}</p><p>${escapeHtml(confirmSteps)}</p><p><a href="${escapeHtml(link)}">${confirmLabel}</a></p>${copyableUrl(link)}`;
+      text = `${subject}\n\n${confirmSteps}\n\n${confirmLabel}\n${copyInstruction}\n${link}`;
     } else {
       const ed = await db
         .prepare("SELECT payload FROM editions WHERE id=?")
