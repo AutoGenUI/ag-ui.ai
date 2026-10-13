@@ -1,6 +1,6 @@
-# 2026-10-13 名额、反馈布局与正常订阅候选
+# 2026-10-13 名额、反馈布局与正常订阅
 
-本文记录 [订阅打磨 v14](2026-10-13-subscription-polish.md) 之后的新一轮用户授权：容量靠上，统一反馈放在表单及取消/退订动作上方；历史固定测试身份可由 owner 安全释放，再由读者自己走正常订阅确认。本页记录时是工作树候选，没有宣称正式目标已释放、下一次 Sites 部署已完成或真实邮件已送达。当前 GitHub/Sites 映射以 [PROJECT_CONTEXT.md](../PROJECT_CONTEXT.md) 和 [CURRENT_STATE.json](../CURRENT_STATE.json) 为准，不在文档中预填尚不存在的 SHA 或平台版本。
+本文记录 [订阅打磨 v14](2026-10-13-subscription-polish.md) 之后的新一轮用户授权：容量靠上，统一反馈放在表单及取消/退订动作上方；历史固定测试身份可由 owner 安全释放，再由读者自己走正常订阅确认。Sites v15 已部署，owner 无发信操作已释放指定历史测试角色并读回确认；正常读者的新邮件使用仍由用户验收，v1.0.1 等待用户确认。当前 GitHub/Sites 映射以 [PROJECT_CONTEXT.md](../PROJECT_CONTEXT.md) 和 [CURRENT_STATE.json](../CURRENT_STATE.json) 为准，不记录真人邮箱或签名。
 
 ## 统一阅读顺序
 
@@ -30,7 +30,7 @@ release 不调用提供商/drain、不发送邮件、不关闭或开启公众邮
 
 | 项目 | 本页当前记录状态 |
 | --- | --- |
-| 布局与角色释放代码 | 候选；独立只读复核未发现具体阻塞，发布与真实释放另行核验 |
+| 布局与角色释放代码 | 已部署；独立只读复核未发现具体阻塞，实际 owner 角色释放已读回确认 |
 | 隔离本地测试 | 基础 35、新闻/邮件 57 + 模板 4 = 61、订阅 UI 11、HTTP 8，共 115 项通过；新闻/邮件/模板修复后连续 20 轮完整通过；合成身份、隔离数据库和 mock 提供商，无真实投递 |
 | release 回归 | 新增 6 组：状态操作不发信/历史和额度保留、精确固定目标、抑制与未知提交及事务重查、并发 winner/幂等、预加载 producer/claim/签名管理、事务内历史时钟与跨代际回调；匿名 admin/MCP release 在调用数据库前拒绝，隔离 HTTP 覆盖匿名 403 |
 | TypeScript、lint 与依赖审计 | TypeScript 通过；lint 0 错误、2 条既有警告；audit 8 moderate、0 high、0 critical，原门槛保留 |
@@ -40,9 +40,9 @@ release 不调用提供商/drain、不发送邮件、不关闭或开启公众邮
 | 申请 UI-only mock | CDP 只 mock status/signup，表单保留、反馈在表单上方、容量在反馈上方，返回按钮数量 0；未真实收集地址或发送邮件 |
 | 退订与 pending 取消 | 合成英文订阅主动退订后公众人数为 0、表单数量 0，容量仍在反馈之前；合成中文 pending 管理 GET 的状态在取消按钮上方，GET 不取消，明确点击后进入退订终态 |
 | 浏览器范围与控制台 | 桌面 1440px、手机 390px；本轮上述本地浏览器控制台错误为 0。合成身份和 UI-only mock 不等于真实邮箱/生产 DOM 验收 |
-| required GitHub verify、PR 合并 | 待本轮结果；本地构建不等于 CI 通过 |
-| 本轮 Sites 部署、源码树与配置保留 | 待发布回执；不预设下一数字版本或声称 GitHub 自动部署 |
-| 真实固定目标释放 | 尚未记录执行结果；不能从 mock 推断已完成 |
+| required GitHub verify、PR 合并 | PR #9 正常合入 main，PR 与 main required verify 均通过 |
+| 本轮 Sites 部署、源码树与配置保留 | Sites v15 succeeded，源码树匹配；env revision12、public、MCP和2项任务保留 |
+| 真实固定目标释放 | owner release 返回 released/public，另一次 owner status 确认 public；无发信或自动订阅 |
 | 读者正常申请/确认或新真实投递 | 未记录本轮真实验收；须区分用户报告、provider 提交、回调与实际收件 |
 
 隔离 HTTP 首轮在新启动的本地 dev ProxyWorker 请求 `/mcp` 时出现一次 `Network connection lost`/500，失败日志已保留。后续直接请求返回预期匿名 403，ready 后完整 8 项通过；这是本地开发代理瞬断观察，没有为此修改源码，也不能用后续通过抹去首次失败或推断生产故障。
@@ -52,3 +52,11 @@ schema、DNS、生产邮件开关、秘密、定时任务和免费预算应保�
 本轮先供用户验收，不创建 `v1.0.1` tag 或 GitHub Release；用户确认后才能另行标记版本。不可变 `v1.0.0` 与 v14 公开回执保留为历史，不移动旧标签。受保护 main 通过临时 PR 分支正常合并；完成核对后恢复长期仅 main 的策略。
 
 Brevo 既有跟踪披露、提交/送达/收件区别和部分网络 Cloudflare 拦截继续保留；本地 mock、邮件合成预览或 HTTP 200 不扩大为真实投递/全网络可达证据。维护入口为 [邮件维护](../operations/email-subscriptions.md)、[owner 管理](../operations/owner-management.md)、[部署维护](../operations/deployment-maintenance.md) 与 [采编合同](../../public/automation.md)。
+
+## 发布与角色释放回执
+
+[PR #9](https://github.com/AutoGenUI/ag-ui.ai/pull/9) 与合并后 main 的 required verify 全通过。Sites 平台 v15 于 2026-10-13 12:42:27 UTC succeeded；源码与 GitHub tree 一致，env revision12、public、MCP、原2项任务保留。完整 SHA、opaque ID 与检查链接见 PROJECT_CONTEXT/CURRENT_STATE。
+
+部署后 owner 使用精确匹配的 expectedRecipient 执行无发信 release，返回 released/public，另一次 status 确认 public。它不直接确认订阅或发送邮件；用户仍须申请并使用新确认邮件。公开人数仍1/250、余位249；中英订阅、三个RSS与状态200，匿名管理403。未读取秘密、实际邮箱内容或其他订阅行，未触发真实发送，也未新获生产DOM验收。
+
+v1.0.1 标签与 GitHub Release 尚未创建，等待用户确认部署结果；v1.0.0 未移动。后续公开回执为文档提交，不追加一次部署。
