@@ -13,47 +13,50 @@
     "documentsAndCodeIntegrityVerified": true
   },
   "production": {
-    "evidence": "Sites metadata and source refreshed on 2026-10-13; private environment values were not read",
+    "evidence": "Formal v1.0.0 publication receipts, Sites metadata/source and read-only public checks on 2026-10-13; private environment values and subscriber rows were not read",
     "url": "https://ag-ui.ai",
-    "publishedVersion": 12,
-    "deploymentStatusAtHandoff": "succeeded",
-    "sourceCommit": "6027589c4bac13e456ad47d5ef2f0981ef18d94e",
-    "sourceTree": "f961865e0d744fffa8fffb3e4d978e8185f56f93",
-    "publicMailEnabledAtHandoff": true,
-    "domainVerifiedAtHandoff": true,
-    "mailAcceptancePassedAtHandoff": true,
+    "platformUrl": "https://ag-ui-ai.channely.chatgpt.site",
+    "projectId": "appgprj_6a5dcacfcbb4819193bac2b2104ed926",
+    "publishedVersion": 13,
+    "versionId": "appgprj_6a5dcacfcbb4819193bac2b2104ed926~appgver_e5bc604caacc819184c81bd223d5c9ee",
+    "deploymentId": "appgdep_6ace04b15f408191ad18bdcbbe4be3d3",
+    "deploymentStatus": "succeeded",
+    "deploymentCompletedAt": "2026-10-13T10:15:25.780042+00:00",
+    "sourceCommit": "8512d230c7df3bece70c503af02ff2acce0dbe9d",
+    "sourceTree": "661f59e806ce2174a33d6d87b9b44d0959400554",
+    "githubReleaseCommit": "71ff116e033f0295a44415d13acd92bf1c0b97b6",
+    "environmentSetRevision": 12,
+    "hasMcp": true,
+    "publicAccessMetadataVerified": true,
+    "activeMetadataVerified": true,
+    "publicMailEnabledAtObservation": true,
     "confirmedSubscriberCapacity": 250,
-    "dailySubmissionLimitAtHandoff": 300,
-    "weeklySubmissionBudgetAtHandoff": 250,
+    "publicAggregateAtObservation": {
+      "confirmedPublic": 1,
+      "remaining": 249,
+      "scope": "Public aggregate only; no subscriber rows or signed links read"
+    },
     "existingSchedulesPreserved": true,
-    "metadataObservedAt": "2026-10-13T10:10:32Z"
+    "automationCountAtObservation": 2,
+    "observedOn": "2026-10-13"
   },
   "github": {
-    "observedAt": "2026-10-13T10:10:32Z",
+    "observedOn": "2026-10-13",
     "repository": "AutoGenUI/ag-ui.ai",
     "defaultBranch": "main",
-    "mainAtObservation": "f670b23d32e6de1e4497f46113ef277fc3fc97cc",
+    "mainAtObservation": "71ff116e033f0295a44415d13acd92bf1c0b97b6",
+    "evidence": "Formal release publication receipts; later documentation commits are not part of the immutable release tag",
     "syncBranch": null,
-    "pullRequest": "https://github.com/AutoGenUI/ag-ui.ai/pull/4",
+    "pullRequest": "https://github.com/AutoGenUI/ag-ui.ai/pull/5",
     "draftAtObservation": false,
     "mergedAtObservation": true,
-    "codeAndCiVerificationCommit": "b0f0a40748474e3ce1f5918a7f9c4acff6f1a4f3",
-    "documentationCommitsFollowVerificationCommit": true,
-    "importedSourceCommits": 11,
-    "importedTrackedFiles": 174,
-    "conflicts": [],
+    "mergedAt": "2026-10-13T10:13:52Z",
+    "validatedPullRequestHead": "04c99295995993c93c0cb3596a55f049369601f7",
+    "validatedTree": "661f59e806ce2174a33d6d87b9b44d0959400554",
     "requiredCheck": "verify",
     "branchProtectionPreserved": true,
-    "historicalSyncBranch": "codex/ag-ui-ai-v12-sync",
-    "mergedAt": "2026-10-13T09:47:47Z",
-    "validatedPullRequestHead": "219dd12bbac3662662f942257c6c6b292f37f577",
-    "validatedTree": "e36d9422315db154c01f4f9eaa44ac0230506ded",
-    "primaryMainBeforeSynchronization": "525ec78904ab7e2b97717adc7ac13bfd3f5f3db0",
-    "primaryMainAtObservation": "f670b23d32e6de1e4497f46113ef277fc3fc97cc",
     "branchPolicy": "Keep only main after completed iterations; temporary PR branches allowed and cleaned after verified merge",
-    "branchesAtLastCompletedCleanup": [
-      "main"
-    ],
+    "documentationFollowup": "Public receipt updates use a temporary PR branch; no new Sites deployment and no movement of v1.0.0 tag",
     "recoverablePreCleanupBundleVerified": true,
     "protectedManagedWorktreeRetained": true
   },
@@ -244,7 +247,8 @@
     "pushedAtObservation": true,
     "mergedAtObservation": true,
     "historicalBranch": "codex/ag-ui-ai-v12-sync",
-    "rebasedRepairCommit": "c62c5c874d408c35635adc0ee74f299f8012d7c2"
+    "rebasedRepairCommit": "c62c5c874d408c35635adc0ee74f299f8012d7c2",
+    "historical": true
   },
   "limitations": {
     "anonymousEmailTrackingNotEquivalentToDisabledTracking": true,
@@ -257,7 +261,9 @@
     "secretValuesReadOrExported": false,
     "realMailSent": false,
     "newPaidActions": false,
-    "testsUseIsolatedLocalD1AndDisabledMail": true
+    "testsUseIsolatedLocalD1AndDisabledMail": true,
+    "historical": true,
+    "scope": "Earlier v12 GitHub synchronization only; formal publication is recorded separately in release"
   },
   "openEngineeringWork": [
     "Track 8 moderate dependencies without weakening the audit gate",
@@ -267,7 +273,7 @@
     "Observe real queued cancellation and additional bounce scenarios only under authorized acceptance",
     "Before authorized production maintenance, refresh account permissions, full DNS/DKIM inventory, actual Sites deployment, D1 migration ledger and backup/restore capability, schedules and provider allowance"
   ],
-  "refreshRule": "Before the next iteration read live GitHub state and docs/operations/README.md; use dated handoff evidence for production until an authorized refresh. GitHub merge does not deploy Sites. Keep private operational data outside this repository.",
+  "refreshRule": "Before the next iteration read live GitHub state and docs/operations/README.md. The completed v1.0.0 release receipt is dated evidence, not live configuration. GitHub merge does not deploy Sites. Preserve immutable release tag and keep private operational data outside this repository.",
   "operationsHandoff": {
     "scope": "Public maintenance documentation; not production account inspection or deployment",
     "index": "docs/operations/README.md",
@@ -283,7 +289,8 @@
     "publicHttpsFromCurrentEgress": "Cloudflare 403; not a new browser acceptance",
     "accountDnsInventoryAndDkimSelectorVerified": false,
     "managedD1BackupRestoreCapabilitiesVerified": false,
-    "documentationCommit": "Query GitHub; this snapshot does not self-reference its own commit"
+    "documentationCommit": "Query GitHub; this snapshot does not self-reference its own commit",
+    "historical": true
   },
   "releaseCandidate": {
     "version": "1.0.0",
@@ -326,6 +333,189 @@
     "schemaChanged": false,
     "productionSecretsRead": false,
     "productionConfigurationChanges": false,
-    "rolloutLimit": "New client requires subscriptionType; use matching client and Worker and refresh open pages after rollback"
+    "rolloutLimit": "New client requires subscriptionType; use matching client and Worker and refresh open pages after rollback",
+    "historical": true,
+    "archivedBy": "release.version 1.0.0; original candidate evidence retained without rewriting its phase"
+  },
+  "productionV12Snapshot": {
+    "historical": true,
+    "evidence": "Sites metadata and source refreshed on 2026-10-13; private environment values were not read",
+    "url": "https://ag-ui.ai",
+    "publishedVersion": 12,
+    "deploymentStatusAtHandoff": "succeeded",
+    "sourceCommit": "6027589c4bac13e456ad47d5ef2f0981ef18d94e",
+    "sourceTree": "f961865e0d744fffa8fffb3e4d978e8185f56f93",
+    "publicMailEnabledAtHandoff": true,
+    "domainVerifiedAtHandoff": true,
+    "mailAcceptancePassedAtHandoff": true,
+    "confirmedSubscriberCapacity": 250,
+    "dailySubmissionLimitAtHandoff": 300,
+    "weeklySubmissionBudgetAtHandoff": 250,
+    "existingSchedulesPreserved": true,
+    "metadataObservedAt": "2026-10-13T10:10:32Z"
+  },
+  "historicalV12Synchronization": {
+    "historical": true,
+    "observedAt": "2026-10-13T10:10:32Z",
+    "repository": "AutoGenUI/ag-ui.ai",
+    "defaultBranch": "main",
+    "mainAtObservation": "f670b23d32e6de1e4497f46113ef277fc3fc97cc",
+    "syncBranch": null,
+    "pullRequest": "https://github.com/AutoGenUI/ag-ui.ai/pull/4",
+    "draftAtObservation": false,
+    "mergedAtObservation": true,
+    "codeAndCiVerificationCommit": "b0f0a40748474e3ce1f5918a7f9c4acff6f1a4f3",
+    "documentationCommitsFollowVerificationCommit": true,
+    "importedSourceCommits": 11,
+    "importedTrackedFiles": 174,
+    "conflicts": [],
+    "requiredCheck": "verify",
+    "branchProtectionPreserved": true,
+    "historicalSyncBranch": "codex/ag-ui-ai-v12-sync",
+    "mergedAt": "2026-10-13T09:47:47Z",
+    "validatedPullRequestHead": "219dd12bbac3662662f942257c6c6b292f37f577",
+    "validatedTree": "e36d9422315db154c01f4f9eaa44ac0230506ded",
+    "primaryMainBeforeSynchronization": "525ec78904ab7e2b97717adc7ac13bfd3f5f3db0",
+    "primaryMainAtObservation": "f670b23d32e6de1e4497f46113ef277fc3fc97cc",
+    "branchPolicy": "Keep only main after completed iterations; temporary PR branches allowed and cleaned after verified merge",
+    "branchesAtLastCompletedCleanup": [
+      "main"
+    ],
+    "recoverablePreCleanupBundleVerified": true,
+    "protectedManagedWorktreeRetained": true
+  },
+  "release": {
+    "version": "1.0.0",
+    "phase": "completed",
+    "recordedAt": "2026-10-13T10:21:15Z",
+    "notes": "docs/releases/v1.0.0.md",
+    "github": {
+      "commit": "71ff116e033f0295a44415d13acd92bf1c0b97b6",
+      "tree": "661f59e806ce2174a33d6d87b9b44d0959400554",
+      "pullRequest": "https://github.com/AutoGenUI/ag-ui.ai/pull/5",
+      "mergedAt": "2026-10-13T10:13:52Z",
+      "pullRequestHead": "04c99295995993c93c0cb3596a55f049369601f7",
+      "requiredVerify": {
+        "status": "passed",
+        "url": "https://github.com/AutoGenUI/ag-ui.ai/actions/runs/38381641758/job/115243248665"
+      },
+      "postMergeVerify": {
+        "status": "passed",
+        "url": "https://github.com/AutoGenUI/ag-ui.ai/actions/runs/38381929658/job/115244227252"
+      },
+      "annotatedTag": "v1.0.0",
+      "remoteTagVerified": true,
+      "tagObject": "55ef990ca2a893c5d72e0a67806c2743cc832e6a",
+      "peeledCommit": "71ff116e033f0295a44415d13acd92bf1c0b97b6",
+      "releaseUrl": "https://github.com/AutoGenUI/ag-ui.ai/releases/tag/v1.0.0",
+      "publishedAt": "2026-10-13T10:18:34Z",
+      "draft": false,
+      "prerelease": false
+    },
+    "sites": {
+      "projectId": "appgprj_6a5dcacfcbb4819193bac2b2104ed926",
+      "versionNumber": 13,
+      "versionId": "appgprj_6a5dcacfcbb4819193bac2b2104ed926~appgver_e5bc604caacc819184c81bd223d5c9ee",
+      "sourceCommit": "8512d230c7df3bece70c503af02ff2acce0dbe9d",
+      "sourceTree": "661f59e806ce2174a33d6d87b9b44d0959400554",
+      "matchesGithubReleaseTree": true,
+      "deploymentId": "appgdep_6ace04b15f408191ad18bdcbbe4be3d3",
+      "status": "succeeded",
+      "completedAt": "2026-10-13T10:15:25.780042+00:00",
+      "environmentSetRevisionPreserved": 12,
+      "hasMcp": true,
+      "active": true,
+      "audience": "public",
+      "automationCount": 2
+    },
+    "validation": {
+      "localTests": {
+        "base": 35,
+        "newsAndMail": 42,
+        "subscriptionUi": 10,
+        "localHttp": 8,
+        "total": 95
+      },
+      "localChecks": [
+        "typescript",
+        "content",
+        "lint",
+        "build"
+      ],
+      "localD1Isolated": true,
+      "localMailDisabled": true,
+      "localBrowserViewports": [
+        "390x844",
+        "1440x900"
+      ],
+      "localBrowserLanguages": [
+        "zh",
+        "en"
+      ],
+      "focusTest": "Temporary CDP focus emulation; restored after verification; not a second physical-device test",
+      "audit": {
+        "moderate": 8,
+        "high": 0,
+        "critical": 0,
+        "unchangedHighSeverityGate": "passed"
+      },
+      "bundle": {
+        "javascriptBytes": 919625,
+        "javascriptGzipBytes": 267506,
+        "cssBytes": 115604,
+        "cssGzipBytes": 22853,
+        "budgetsPreserved": true,
+        "javascriptRawMarginBytes": 375
+      },
+      "productionReadOnlyChecks": {
+        "subscriptionPages": {
+          "zhHttp": 200,
+          "enHttp": 200
+        },
+        "rssHttp": {
+          "zh": 200,
+          "en": 200,
+          "compatibility": 200
+        },
+        "anonymousAdminHttp": 403,
+        "publicStatus": {
+          "enabled": true,
+          "confirmedPublic": 1,
+          "remaining": 249
+        },
+        "zhBrowser": {
+          "status": "passed",
+          "publicAggregateVisible": true,
+          "firstPartyStatisticsVisible": true,
+          "consoleErrors": 0
+        },
+        "enBrowser": {
+          "status": "not-completed",
+          "evidence": "HTTP and RSS passed; subsequent browser connection timed out, so no additional production English DOM assertion was made; this is not evidence of a site fault"
+        },
+        "network": {
+          "currentConfiguredEgressHttp": 200,
+          "directEgressHttp": 403,
+          "allNetworksAccessibleClaim": false
+        }
+      },
+      "links": "Passed in required GitHub verify; local documentation references also validated"
+    },
+    "userConfirmationReport": {
+      "date": "2026-10-13",
+      "evidence": "User reported a new inbox and active webpage confirmation with public count 1; no email or signed URL retained"
+    },
+    "boundaries": {
+      "schemaChanged": false,
+      "dnsChanged": false,
+      "productionMailGatesChanged": false,
+      "schedulesChanged": false,
+      "secretValuesReadOrExported": false,
+      "productionSubscriberRowsRead": false,
+      "newRealMailSent": false,
+      "newPaidActions": false
+    },
+    "rolloutLimit": "New client requires subscriptionType; use matching client and Worker and refresh open pages after rollback",
+    "documentationFollowup": "Receipt-only PR after publication does not redeploy Sites or move the immutable v1.0.0 tag; query GitHub for its eventual commit instead of self-reference"
   }
 }
