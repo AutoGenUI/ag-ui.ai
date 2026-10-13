@@ -13,17 +13,17 @@
     "documentsAndCodeIntegrityVerified": true
   },
   "production": {
-    "evidence": "Sites v15 source/deployment, authenticated scoped role release and readback, and read-only public HTTP checks; no raw subscriber rows, signatures, mailbox contents or secret values exported",
+    "evidence": "Sites v16 terminal succeeded; exact scoped read-only diagnosis validated request-limit cause, without publication of personal records",
     "url": "https://ag-ui.ai",
     "platformUrl": "https://ag-ui-ai.channely.chatgpt.site",
     "projectId": "appgprj_6a5dcacfcbb4819193bac2b2104ed926",
-    "publishedVersion": 15,
-    "versionId": "appgprj_6a5dcacfcbb4819193bac2b2104ed926~appgver_5439f39b4eec8191923b907739149ead",
-    "deploymentId": "appgdep_6ace27243ef4819182c1308c573c4305",
+    "publishedVersion": 16,
+    "versionId": "appgprj_6a5dcacfcbb4819193bac2b2104ed926~appgver_f7abc864d99c8191a6482bde72aa5821",
+    "deploymentId": "appgdep_6ace3312371881918fd20416f1bc40fc",
     "deploymentStatus": "succeeded",
-    "deploymentCompletedAt": "2026-10-13T12:42:27.377707+00:00",
-    "sourceCommit": "40a5fe54ce86e261c031321d8ed823dde94ed178",
-    "sourceTree": "20002bc90b075a584c4ab883860684e6bd15d3f1",
+    "deploymentCompletedAt": "2026-10-13T13:33:22.540158+00:00",
+    "sourceCommit": "dd7ca226a4fa106a5a6005be28674fc8b5cdcb95",
+    "sourceTree": "ea724ec5720479c84155222216926aca226c9bd4",
     "githubReleaseCommit": "71ff116e033f0295a44415d13acd92bf1c0b97b6",
     "environmentSetRevision": 12,
     "hasMcp": true,
@@ -39,25 +39,25 @@
     "existingSchedulesPreserved": true,
     "automationCountAtObservation": 2,
     "observedOn": "2026-10-13",
-    "githubIterationCommit": "5a4ef6df9ad0de3861aabb54ad0e838de83ade7b"
+    "githubIterationCommit": "618f661dbaac21f43a49576bcaf480b41f131511"
   },
   "github": {
     "observedOn": "2026-10-13",
     "repository": "AutoGenUI/ag-ui.ai",
     "defaultBranch": "main",
-    "mainAtObservation": "5a4ef6df9ad0de3861aabb54ad0e838de83ade7b",
-    "evidence": "PR9 and main required verify succeeded; public receipt documentation follows without another deployment",
+    "mainAtObservation": "618f661dbaac21f43a49576bcaf480b41f131511",
+    "evidence": "PR11 required verify passed; publication receipt follows through protected PR",
     "syncBranch": null,
-    "pullRequest": "https://github.com/AutoGenUI/ag-ui.ai/pull/9",
+    "pullRequest": "https://github.com/AutoGenUI/ag-ui.ai/pull/11",
     "draftAtObservation": false,
     "mergedAtObservation": true,
-    "mergedAt": "2026-10-13T12:39:14Z",
-    "validatedPullRequestHead": "d5b884f07423e311eca8f052b6ced71fab6404bd",
-    "validatedTree": "20002bc90b075a584c4ab883860684e6bd15d3f1",
+    "mergedAt": "2026-10-13T13:32:53Z",
+    "validatedPullRequestHead": "26f3bd6d5c73c0832be2e8b09c20a6564f5a023c",
+    "validatedTree": "ea724ec5720479c84155222216926aca226c9bd4",
     "requiredCheck": "verify",
     "branchProtectionPreserved": true,
     "branchPolicy": "Keep only main after completed iterations; temporary PR branches allowed and cleaned after verified merge",
-    "documentationFollowup": "Protected temporary PR records v15 and authorized no-send role release; do not create v1.0.1 before user acceptance",
+    "documentationFollowup": "v16 deployment and request-limit diagnostic receipt; v1.0.1 still awaits user acceptance",
     "recoverablePreCleanupBundleVerified": true,
     "protectedManagedWorktreeRetained": true
   },
@@ -787,7 +787,7 @@
     "productionBrowserLimit": "No new production DOM claim; previous agent browser navigation blocked. Synthetic desktop/mobile browser proof and native deployment/HTTP evidence are recorded separately."
   },
   "subscriptionThrottleIteration": {
-    "phase": "candidate",
+    "phase": "deployed-awaiting-user-acceptance",
     "baseCommit": "a7e282095610c62344b7a0f670cd3c454523e84d",
     "observedOn": "2026-10-13",
     "scope": "Explicit signup rate-limit feedback and owner-only exact-target read-only diagnostic; no quota reset, no mail send",
@@ -821,6 +821,13 @@
       },
       "browser": "local synthetic ZH desktop and EN mobile; retained input and ordered cards",
       "noRealEmailSent": true
-    }
+    },
+    "sourceRevision": "dd7ca226a4fa106a5a6005be28674fc8b5cdcb95",
+    "githubCommit": "618f661dbaac21f43a49576bcaf480b41f131511",
+    "pullRequest": "https://github.com/AutoGenUI/ag-ui.ai/pull/11",
+    "deploymentCompletedAt": "2026-10-13T13:33:22.540158+00:00",
+    "diagnosticVerified": true,
+    "noCountersReset": true,
+    "noMailSent": true
   }
 }
