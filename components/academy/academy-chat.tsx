@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { academyLessons, getAcademyLesson, phaseCopy, type AcademyLesson, type AcademyPhase } from "@/lib/academy/course";
+import type { AcademyCourseView, AcademyLessonView, AcademyPhase } from "@/lib/academy/course";
 import type { Locale } from "@/lib/types";
 
 interface AcademyMessage {
@@ -98,21 +98,21 @@ function toAgUiMessages(messages: AcademyMessage[]): AgUiMessage[] {
   return messages.map((message) => ({ id: message.id, role: message.role, content: message.text }));
 }
 
-function Curriculum({ locale, activeLesson, disabled, onSelect }: { locale: Locale; activeLesson: AcademyLesson; disabled: boolean; onSelect: (lesson: AcademyLesson) => void }) {
+function Curriculum({ locale, lessons, phaseLabels, activeLesson, disabled, onSelect }: AcademyCourseView & { locale: Locale; activeLesson: AcademyLessonView; disabled: boolean; onSelect: (lesson: AcademyLessonView) => void }) {
   const t = copy[locale];
-  const phases = Object.keys(phaseCopy) as AcademyPhase[];
+  const phases = Object.keys(phaseLabels) as AcademyPhase[];
   return <div className="academy-curriculum">
     <p className="academy-sidebar-label">{t.curriculum}</p>
     {phases.map((phase) => <section key={phase}>
-      <h3>{phaseCopy[phase][locale]}</h3>
-      {academyLessons.filter((lesson) => lesson.phase === phase).map((lesson) => <button aria-current={lesson.id === activeLesson.id ? "step" : undefined} disabled={disabled} key={lesson.id} onClick={() => onSelect(lesson)} type="button">
-        <span>{String(lesson.order).padStart(2, "0")}</span><b>{lesson.title[locale]}</b>
+      <h3>{phaseLabels[phase]}</h3>
+      {lessons.filter((lesson) => lesson.phase === phase).map((lesson) => <button aria-current={lesson.id === activeLesson.id ? "step" : undefined} disabled={disabled} key={lesson.id} onClick={() => onSelect(lesson)} type="button">
+        <span>{String(lesson.order).padStart(2, "0")}</span><b>{lesson.title}</b>
       </button>)}
     </section>)}
   </div>;
 }
 
-export function AcademyChat({ locale }: { locale: Locale }) {
+export function AcademyChat({ locale, lessons, phaseLabels }: { locale: Locale } & AcademyCourseView) {
   const t = copy[locale];
   const storageKey = `ag-ui-ai:academy:${locale}`;
   const threadId = useRef(`academy-${crypto.randomUUID()}`);
@@ -126,7 +126,7 @@ export function AcademyChat({ locale }: { locale: Locale }) {
   const [providerLabel, setProviderLabel] = useState(locale === "zh" ? "离线导师 / DeepSeek 试用" : "Offline tutor / DeepSeek trial");
   const [hydrated, setHydrated] = useState(false);
   const [settings, setSettings] = useState<ModelSettingsValue>({ provider: "trial", apiKey: "", baseURL: "", model: modelDefaults.trial });
-  const activeLesson = getAcademyLesson(activeLessonId) ?? academyLessons[0];
+  const activeLesson = lessons.find((lesson) => lesson.id === activeLessonId) ?? lessons[0];
   const busy = status === "submitted" || status === "streaming";
 
   useEffect(() => {
@@ -170,7 +170,7 @@ export function AcademyChat({ locale }: { locale: Locale }) {
     localStorage.removeItem(storageKey);
   }, [storageKey]);
 
-  const send = useCallback(async (text: string, lessonOverride?: AcademyLesson) => {
+  const send = useCallback(async (text: string, lessonOverride?: AcademyLessonView) => {
     const trimmed = text.trim();
     if (!trimmed || busy) return;
     const lesson = lessonOverride ?? activeLesson;
@@ -205,7 +205,7 @@ export function AcademyChat({ locale }: { locale: Locale }) {
       },
       onStateSnapshotEvent: ({ event }) => {
         const snapshot = event.snapshot as RuntimeSnapshot;
-        if (getAcademyLesson(snapshot.lessonId)) setActiveLessonId(snapshot.lessonId as string);
+        if (lessons.some((lesson) => lesson.id === snapshot.lessonId)) setActiveLessonId(snapshot.lessonId as string);
         const label = snapshot.provider?.label;
         const model = snapshot.provider?.model;
         if (label) setProviderLabel(snapshot.provider?.mode !== "offline" && model ? `${label} · ${model}` : label);
@@ -232,20 +232,20 @@ export function AcademyChat({ locale }: { locale: Locale }) {
     } finally {
       if (agentRef.current === agent) agentRef.current = null;
     }
-  }, [activeLesson, busy, locale, messages, settings, t.error]);
+  }, [activeLesson, busy, lessons, locale, messages, settings, t.error]);
 
-  const selectLesson = useCallback((lesson: AcademyLesson) => {
-    void send(lesson.starterPrompt[locale], lesson);
-  }, [locale, send]);
+  const selectLesson = useCallback((lesson: AcademyLessonView) => {
+    void send(lesson.starterPrompt, lesson);
+  }, [send]);
 
   const handleSubmit = useCallback(async (message: PromptInputMessage) => {
     await send(message.text);
   }, [send]);
 
-  const groupedSuggestionLessons = useMemo(() => suggestions.map((id) => getAcademyLesson(id)).filter((lesson): lesson is AcademyLesson => Boolean(lesson)), []);
+  const groupedSuggestionLessons = useMemo(() => suggestions.map((id) => lessons.find((lesson) => lesson.id === id)).filter((lesson): lesson is AcademyLessonView => Boolean(lesson)), [lessons]);
 
-  const curriculum = <Curriculum activeLesson={activeLesson} disabled={busy} locale={locale} onSelect={selectLesson} />;
-  const inspector = <div className="academy-inspector-inner"><LessonArtifact lesson={activeLesson} locale={locale} providerLabel={providerLabel} /><EventInspector events={events} locale={locale} status={status} /></div>;
+  const curriculum = <Curriculum activeLesson={activeLesson} disabled={busy} lessons={lessons} phaseLabels={phaseLabels} locale={locale} onSelect={selectLesson} />;
+  const inspector = <div className="academy-inspector-inner"><LessonArtifact lesson={activeLesson} lessonCount={lessons.length} phaseLabel={phaseLabels[activeLesson.phase]} locale={locale} providerLabel={providerLabel} /><EventInspector events={events} locale={locale} status={status} /></div>;
 
   return <div className="academy-app dark">
     <aside className="academy-sidebar">
@@ -269,7 +269,7 @@ export function AcademyChat({ locale }: { locale: Locale }) {
         <div className="academy-mobile-actions">
           <Sheet><SheetTrigger asChild><Button aria-label={t.menu} size="icon" variant="ghost"><Menu /></Button></SheetTrigger><SheetContent className="academy-mobile-sheet dark" side="left"><SheetHeader><SheetTitle>{t.curriculum}</SheetTitle></SheetHeader><ScrollArea className="h-[calc(100dvh-5rem)]">{curriculum}</ScrollArea></SheetContent></Sheet>
         </div>
-        <div className="academy-topbar-title"><span>{String(activeLesson.order).padStart(2, "0")}</span><div><b>{activeLesson.title[locale]}</b><small>{phaseCopy[activeLesson.phase][locale]}</small></div></div>
+        <div className="academy-topbar-title"><span>{String(activeLesson.order).padStart(2, "0")}</span><div><b>{activeLesson.title}</b><small>{phaseLabels[activeLesson.phase]}</small></div></div>
         <div className="academy-topbar-actions">
           <Badge className="academy-provider-badge" variant="outline"><span />{providerLabel}</Badge>
           <Link className="academy-locale" href={`/${locale === "en" ? "zh" : "en"}/learn/academy`}><Languages />{locale === "en" ? "中文" : "EN"}</Link>
@@ -286,7 +286,7 @@ export function AcademyChat({ locale }: { locale: Locale }) {
             <h1>{t.welcome}</h1>
             <span>{t.intro}</span>
             <div className="academy-suggestions">
-              {groupedSuggestionLessons.map((lesson) => <button disabled={busy} key={lesson.id} onClick={() => selectLesson(lesson)} type="button"><small>{phaseCopy[lesson.phase][locale]}</small><b>{lesson.title[locale]}</b><span>{lesson.summary[locale]}</span><em>{t.start} →</em></button>)}
+              {groupedSuggestionLessons.map((lesson) => <button disabled={busy} key={lesson.id} onClick={() => selectLesson(lesson)} type="button"><small>{phaseLabels[lesson.phase]}</small><b>{lesson.title}</b><span>{lesson.summary}</span><em>{t.start} →</em></button>)}
             </div>
           </section> : messages.map((message, index) => <Message from={message.role} key={message.id}>
             <MessageContent>
@@ -305,7 +305,7 @@ export function AcademyChat({ locale }: { locale: Locale }) {
       <div className="academy-composer-wrap">
         <PromptInput className="academy-composer" onSubmit={handleSubmit}>
           <PromptInputBody><PromptInputTextarea disabled={busy} onChange={(event) => setInput(event.target.value)} placeholder={t.prompt} value={input} /></PromptInputBody>
-          <PromptInputFooter><PromptInputTools><span className="academy-context-chip"><Settings2 />{activeLesson.title[locale]}</span></PromptInputTools><PromptInputSubmit aria-label={locale === "zh" ? "发送消息" : "Send message"} disabled={!input.trim() && !busy} onStop={stop} status={status} /></PromptInputFooter>
+          <PromptInputFooter><PromptInputTools><span className="academy-context-chip"><Settings2 />{activeLesson.title}</span></PromptInputTools><PromptInputSubmit aria-label={locale === "zh" ? "发送消息" : "Send message"} disabled={!input.trim() && !busy} onStop={stop} status={status} /></PromptInputFooter>
         </PromptInput>
         <p>{t.disclaimer}</p>
       </div>

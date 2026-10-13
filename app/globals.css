@@ -1,5 +1,20 @@
-@import "tailwindcss";
+@import "tailwindcss" source(none);
 @import "tw-animate-css";
+
+/* Scan rendered source, not documentation, test fixtures or build output. */
+@source "../app";
+@source "../components";
+@source "../lib";
+
+/* Optional UI templates are not imported by any application entry point.
+   Register them here when adding a feature that renders one of them. */
+@source not "../components/ui/command.tsx";
+@source not "../components/ui/dropdown-menu.tsx";
+@source not "../components/ui/hover-card.tsx";
+@source not "../components/ui/input-group.tsx";
+@source not "../components/ui/spinner.tsx";
+@source not "../components/ui/tabs.tsx";
+@source not "../components/ui/textarea.tsx";
 
 @custom-variant dark (&:is(.dark *));
 

@@ -44,6 +44,16 @@ export default defineConfig(async () => {
   const { cloudflare } = await import("@cloudflare/vite-plugin");
 
   return {
+    // Vite's Terser plugin reads the root build option even in a client
+    // environment. Keep server builds at their existing unminified default.
+    build: {
+      minify: "terser" as const,
+      terserOptions: { compress: { passes: 2 }, maxWorkers: 2 },
+    },
+    environments: {
+      rsc: { build: { minify: false as const } },
+      ssr: { build: { minify: false as const } },
+    },
     server: isCodexSeatbeltSandbox
       ? { watch: { useFsEvents: false, usePolling: true } }
       : undefined,
