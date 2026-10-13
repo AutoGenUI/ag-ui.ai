@@ -22,10 +22,63 @@ jobs:
       - run: npm run security:audit
       - run: npm run content:validate
       - run: npm test
+      - run: npx tsc --noEmit
+      - run: npm run test:news
+      - run: node --import tsx --test tests/subscription-ui.test.mjs
       - run: npm run lint
       - run: npm run build
       - run: npm run check:bundle
-      - run: npm run test:render
+      - name: Test anonymous HTTP routes with an isolated local Worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          ci_runtime_dir="$(mktemp -d "${RUNNER_TEMP:-/tmp}/ag-ui-ai-http.XXXXXX")"
+          worker_pid=""
+          cleanup() {
+            if [[ -n "$worker_pid" ]]; then
+              kill "$worker_pid" 2>/dev/null || true
+              wait "$worker_pid" 2>/dev/null || true
+            fi
+            rm -rf "$ci_runtime_dir"
+          }
+          trap cleanup EXIT
+
+          for migration in drizzle/0000_medical_katie_power.sql drizzle/0001_mail_acceptance_isolation.sql; do
+            WRANGLER_LOG_PATH="$ci_runtime_dir/wrangler.log" \
+              node node_modules/wrangler/bin/wrangler.js d1 execute DB \
+              --local --config dist/server/wrangler.json \
+              --persist-to "$ci_runtime_dir/state" --file "$migration"
+          done
+
+          WRANGLER_LOG_PATH="$ci_runtime_dir/wrangler.log" \
+            node node_modules/wrangler/bin/wrangler.js dev \
+            --config dist/server/wrangler.json --local \
+            --persist-to "$ci_runtime_dir/state" --ip 127.0.0.1 \
+            --port 4173 --inspector-port 0 \
+            --var EMAIL_ENABLED:false --var BREVO_DOMAIN_VERIFIED:false \
+            --var EMAIL_ACCEPTANCE_PASSED:false \
+            >"$ci_runtime_dir/worker.log" 2>&1 &
+          worker_pid=$!
+
+          worker_ready=false
+          for attempt in {1..30}; do
+            if ! kill -0 "$worker_pid" 2>/dev/null; then
+              cat "$ci_runtime_dir/worker.log"
+              exit 1
+            fi
+            if curl --noproxy 127.0.0.1 --fail --silent --show-error --max-time 1 \
+              http://127.0.0.1:4173/api/subscription/status >/dev/null 2>&1; then
+              worker_ready=true
+              break
+            fi
+            sleep 1
+          done
+          if [[ "$worker_ready" != true ]]; then
+            cat "$ci_runtime_dir/worker.log"
+            exit 1
+          fi
+          kill -0 "$worker_pid"
+          SITE_TEST_BASE_URL=http://127.0.0.1:4173 npm run test:render
       - name: Check links
         uses: lycheeverse/lychee-action@v2
         with:
