@@ -13,18 +13,18 @@
     "documentsAndCodeIntegrityVerified": true
   },
   "production": {
-    "evidence": "Sites v16 terminal succeeded; exact scoped read-only diagnosis validated request-limit cause, without publication of personal records",
+    "evidence": "Sites v17 terminal succeeded; exact release tree and read-only public HTTP verified",
     "url": "https://ag-ui.ai",
     "platformUrl": "https://ag-ui-ai.channely.chatgpt.site",
     "projectId": "appgprj_6a5dcacfcbb4819193bac2b2104ed926",
-    "publishedVersion": 16,
-    "versionId": "appgprj_6a5dcacfcbb4819193bac2b2104ed926~appgver_f7abc864d99c8191a6482bde72aa5821",
-    "deploymentId": "appgdep_6ace3312371881918fd20416f1bc40fc",
+    "publishedVersion": 17,
+    "versionId": "appgprj_6a5dcacfcbb4819193bac2b2104ed926~appgver_e9520e6fde348191a354c9847bc078b5",
+    "deploymentId": "appgdep_6ace369800908191869b5b0e3df5297d",
     "deploymentStatus": "succeeded",
-    "deploymentCompletedAt": "2026-10-13T13:33:22.540158+00:00",
-    "sourceCommit": "dd7ca226a4fa106a5a6005be28674fc8b5cdcb95",
-    "sourceTree": "ea724ec5720479c84155222216926aca226c9bd4",
-    "githubReleaseCommit": "71ff116e033f0295a44415d13acd92bf1c0b97b6",
+    "deploymentCompletedAt": "2026-10-13T13:48:23.323550+00:00",
+    "sourceCommit": "88a840a2052d312dbd5b1a04a3f5cb7c36422744",
+    "sourceTree": "93352d2871a89b8c9b398bc5aaf2e8bae0c88861",
+    "githubReleaseCommit": "fae53ff09c26ca10985e5a48d04a76fc1511046b",
     "environmentSetRevision": 12,
     "hasMcp": true,
     "publicAccessMetadataVerified": true,
@@ -39,25 +39,25 @@
     "existingSchedulesPreserved": true,
     "automationCountAtObservation": 2,
     "observedOn": "2026-10-13",
-    "githubIterationCommit": "618f661dbaac21f43a49576bcaf480b41f131511"
+    "githubIterationCommit": "fae53ff09c26ca10985e5a48d04a76fc1511046b"
   },
   "github": {
     "observedOn": "2026-10-13",
     "repository": "AutoGenUI/ag-ui.ai",
     "defaultBranch": "main",
-    "mainAtObservation": "618f661dbaac21f43a49576bcaf480b41f131511",
-    "evidence": "PR11 required verify passed; publication receipt follows through protected PR",
+    "mainAtObservation": "fae53ff09c26ca10985e5a48d04a76fc1511046b",
+    "evidence": "PR13 verify passed; main initial HTTP failure preserved, exact-commit attempt 2 passed; immutable tag and Sites v17 verified",
     "syncBranch": null,
-    "pullRequest": "https://github.com/AutoGenUI/ag-ui.ai/pull/11",
+    "pullRequest": "https://github.com/AutoGenUI/ag-ui.ai/pull/13",
     "draftAtObservation": false,
     "mergedAtObservation": true,
-    "mergedAt": "2026-10-13T13:32:53Z",
-    "validatedPullRequestHead": "26f3bd6d5c73c0832be2e8b09c20a6564f5a023c",
-    "validatedTree": "ea724ec5720479c84155222216926aca226c9bd4",
+    "mergedAt": "2026-10-13T13:47:08Z",
+    "validatedPullRequestHead": "542ee0457738e11f344ad5528166a514f4859938",
+    "validatedTree": "93352d2871a89b8c9b398bc5aaf2e8bae0c88861",
     "requiredCheck": "verify",
     "branchProtectionPreserved": true,
     "branchPolicy": "Keep only main after completed iterations; temporary PR branches allowed and cleaned after verified merge",
-    "documentationFollowup": "v1.0.1 authorized; actual tag and deployment evidence will be recorded after completion",
+    "documentationFollowup": "Receipt-only protected PR after publication; does not redeploy Sites or move v1.0.1; query current GitHub main for its final SHA",
     "recoverablePreCleanupBundleVerified": true,
     "protectedManagedWorktreeRetained": true
   },
@@ -336,7 +336,7 @@
     "productionConfigurationChanges": false,
     "rolloutLimit": "New client requires subscriptionType; use matching client and Worker and refresh open pages after rollback",
     "historical": true,
-    "archivedBy": "release.version 1.0.0; original candidate evidence retained without rewriting its phase"
+    "archivedBy": "releaseHistory.v1.0.0; original candidate evidence retained without rewriting its phase"
   },
   "productionV12Snapshot": {
     "historical": true,
@@ -387,16 +387,158 @@
   },
   "release": {
     "version": "1.0.1",
-    "phase": "authorized-preparing-protected-PR-and-deployment",
+    "phase": "completed",
     "authorizedOn": "2026-10-13",
     "baseMain": "b0dbe4bd2a41be7c8908425050d8d275fc86e6c7",
     "notes": "docs/releases/v1.0.1.md",
     "authorization": "User explicitly requested v1.0.1 tag, code push and updated deployment; this supersedes earlier release waiting gates, not new inbox acceptance",
-    "tagCreated": false,
+    "tagCreated": true,
     "githubReleaseCreated": false,
     "realMailSent": false,
     "schemaChanged": false,
-    "configurationChanged": false
+    "configurationChanged": false,
+    "recordedAt": "2026-10-13T13:51:50.500997+00:00",
+    "github": {
+      "commit": "fae53ff09c26ca10985e5a48d04a76fc1511046b",
+      "tree": "93352d2871a89b8c9b398bc5aaf2e8bae0c88861",
+      "pullRequest": "https://github.com/AutoGenUI/ag-ui.ai/pull/13",
+      "mergedAt": "2026-10-13T13:47:08Z",
+      "pullRequestHead": "542ee0457738e11f344ad5528166a514f4859938",
+      "requiredVerify": {
+        "status": "passed",
+        "url": "https://github.com/AutoGenUI/ag-ui.ai/actions/runs/38407234999/job/115329927797"
+      },
+      "postMergeVerify": {
+        "status": "passed",
+        "url": "https://github.com/AutoGenUI/ag-ui.ai/actions/runs/38407815213/job/115333188937",
+        "attempt": 2,
+        "initialFailure": "Attempt 1: first anonymous local /mcp request returned 500 instead of 403; later MCP test passed. Exact-commit rerun passed. Initial worker log unavailable; transient local runtime is plausible, not proven."
+      },
+      "annotatedTag": "v1.0.1",
+      "tagObject": "986027696d707dfc023fa411c9cb6e8e66a011d7",
+      "peeledCommit": "fae53ff09c26ca10985e5a48d04a76fc1511046b",
+      "remoteTagVerified": true,
+      "tagUrl": "https://github.com/AutoGenUI/ag-ui.ai/tree/v1.0.1",
+      "previousTagUnchanged": true
+    },
+    "sites": {
+      "projectId": "appgprj_6a5dcacfcbb4819193bac2b2104ed926",
+      "versionNumber": 17,
+      "versionId": "appgprj_6a5dcacfcbb4819193bac2b2104ed926~appgver_e9520e6fde348191a354c9847bc078b5",
+      "sourceCommit": "88a840a2052d312dbd5b1a04a3f5cb7c36422744",
+      "sourceTree": "93352d2871a89b8c9b398bc5aaf2e8bae0c88861",
+      "matchesGithubReleaseTree": true,
+      "deploymentId": "appgdep_6ace369800908191869b5b0e3df5297d",
+      "status": "succeeded",
+      "completedAt": "2026-10-13T13:48:23.323550+00:00",
+      "environmentSetRevisionPreserved": 12,
+      "hasMcp": true,
+      "active": true,
+      "audience": "public",
+      "automationCount": 2
+    },
+    "validation": {
+      "ciTests": {
+        "base": 35,
+        "newsAndMail": 64,
+        "subscriptionUi": 12,
+        "localHttp": 8,
+        "total": 119
+      },
+      "ciChecks": [
+        "security:audit",
+        "content:validate",
+        "typescript",
+        "lint",
+        "build",
+        "check:bundle",
+        "links"
+      ],
+      "localSitesBuild": "passed",
+      "localD1Isolated": true,
+      "localMailDisabled": true,
+      "browserEvidence": "Prior v14/v15/v16 local synthetic browser evidence reused; release changes metadata/docs only. No new production DOM or real-inbox assertion.",
+      "audit": {
+        "moderate": 8,
+        "high": 0,
+        "critical": 0
+      },
+      "lintWarnings": 2,
+      "bundle": {
+        "javascriptBytes": 919961,
+        "javascriptGzipBytes": 267637,
+        "cssBytes": 116185,
+        "cssGzipBytes": 23035,
+        "budgetsPreserved": true,
+        "javascriptRawMarginBytes": 39
+      },
+      "productionReadOnlyChecks": {
+        "observedAt": "2026-10-13T13:49:03.665784+00:00",
+        "checks": [
+          {
+            "path": "/zh/subscribe",
+            "status": 200,
+            "contentType": "text/html; charset=utf-8",
+            "bytes": 20767
+          },
+          {
+            "path": "/en/subscribe",
+            "status": 200,
+            "contentType": "text/html; charset=utf-8",
+            "bytes": 20801
+          },
+          {
+            "path": "/zh/feed.xml",
+            "status": 200,
+            "contentType": "application/rss+xml; charset=utf-8",
+            "bytes": 19996
+          },
+          {
+            "path": "/en/feed.xml",
+            "status": 200,
+            "contentType": "application/rss+xml; charset=utf-8",
+            "bytes": 19604
+          },
+          {
+            "path": "/feed.xml",
+            "status": 200,
+            "contentType": "application/rss+xml; charset=utf-8",
+            "bytes": 19604
+          },
+          {
+            "path": "/api/subscription/status",
+            "status": 200,
+            "contentType": "application/json",
+            "bytes": 114,
+            "publicStatus": {
+              "enabled": true,
+              "confirmedCount": 1,
+              "capacity": 250,
+              "remaining": 249,
+              "full": false,
+              "dailyLimit": 300,
+              "weeklyLimit": 250
+            }
+          },
+          {
+            "path": "/api/admin",
+            "status": 403
+          }
+        ],
+        "scope": "Read-only HTTP. QA user agent. No signup, signed-link navigation, owner write or real mail."
+      },
+      "network": "Current configured egress HTTP passed; no new direct-network test or all-networks claim."
+    },
+    "boundaries": {
+      "schemaChanged": false,
+      "dnsChanged": false,
+      "productionMailGatesChanged": false,
+      "schedulesChanged": false,
+      "subscriberDataRead": false,
+      "newRealMailSent": false,
+      "newPaidActions": false
+    },
+    "documentationFollowup": "Receipt-only protected PR may lead the immutable release commit. No redeployment or tag movement for this documentation update."
   },
   "subscriptionPolish": {
     "recordedOn": "2026-10-13",
