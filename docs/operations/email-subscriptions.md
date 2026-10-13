@@ -35,7 +35,7 @@
 
 只有 `is_test=0 AND status='confirmed'` 占正式名额。pending、unsubscribed、suppressed 和测试身份不占；满额时新申请不收集邮箱，确认返回 HTTP 409 `capacity-full`，未过期 pending 链接可在名额释放后重试。既有偏好和退订仍可用。不要增加容量、购买额度或将测试身份转正式订阅来解决满额。
 
-2026-10-13 核对 [Brevo 免费档官方说明](https://help.brevo.com/hc/en-us/articles/208580669-FAQs-What-are-the-limits-of-the-Free-plan)：每日 300 封，未用额度不滚动，保留 Brevo 品牌标识。官方还说明达到提供商日限后事务邮件有有限 retry queue；这与本站 D1 的 queued 是两层队列，API 接受的邮件可能仍在提供商等待。本轮未登录账户核对实际套餐、剩余额度或账号限制；站内日界线是 Asia/Singapore，不能假定与提供商账户日界线一致。账号其他发信也可能占额度，本站计数不等于提供商余额。
+2026-10-13 核对 [Brevo 免费档官方说明（帮助中心公开 JSON）](https://help.brevo.com/api/v2/help_center/en-us/articles/208580669.json) 与 [官方套餐页](https://www.brevo.com/pricing/)：每日 300 封，未用额度不滚动，保留 Brevo 品牌标识。该 JSON 是同一帮助文章的官方机器可读入口，含标题、正文与可读版地址；帮助中心网页在本轮 CI 返回 403，不能由此推断条款变化。官方还说明达到提供商日限后事务邮件有有限 retry queue；这与本站 D1 的 queued 是两层队列，API 接受的邮件可能仍在提供商等待。本轮未登录账户核对实际套餐、剩余额度或账号限制；站内日界线是 Asia/Singapore，不能假定与提供商账户日界线一致。账号其他发信也可能占额度，本站计数不等于提供商余额。
 
 `/admin` 及 owner `dashboard` 展示正式投递/订阅状态计数、本站当天 `used`、容量与运行状态；UI 显示 used/300。可由限额减 used 估算站内余量，不能称为 Brevo 余额。测试排除正式状态汇总，但计入日配额。不展示邮箱和逐条回执；精确对账需 owner 在安全环境查看提供商日志，不能导入公开仓库。
 
