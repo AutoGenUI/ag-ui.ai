@@ -20,7 +20,7 @@ export function renderMail(input: MailTemplateInput) {
   let subject = confirm ? zh ? "确认订阅 AG-UI.AI" : "Confirm your AG-UI.AI subscription"
     : `AG-UI.AI · ${zh ? "生成式 UI 周报" : "Generative UI weekly"} · ${input.kind === "weekly" ? input.editionId : ""}`;
   const urlBlock = (url: string, label: string) => `<p style="margin:20px 0 6px;font-size:12px;color:#687081">${escapeHtml(label)}</p><p style="margin:0;padding:12px;background:#f3f4f8;border:1px solid #e1e4eb;border-radius:6px;font:11px/1.8 monospace;overflow-wrap:anywhere;word-break:break-all">${escapeHtml(url)}</p>`;
-  const copyHint = zh ? "按钮无法打开时，请复制此网址到浏览器。链接仍可能经 Brevo 跟踪。" : "If the button will not open, copy this URL into your browser. Links may still pass through Brevo tracking.";
+  const copyHint = zh ? "按钮无法打开时，请复制此网址到浏览器。本站要求关闭打开与点击跟踪；像素与链接改写是否完全移除仍待验证。" : "If the button will not open, copy this URL into your browser. We request no open/click tracking; complete pixel/link removal remains unverified.";
   const testNotice = zh ? "这是邮件验收测试，不会加入正式周报名单。" : "This is an email acceptance test, not a public newsletter subscription.";
   let content: string, plain: string;
   if (input.kind === "confirmation") {

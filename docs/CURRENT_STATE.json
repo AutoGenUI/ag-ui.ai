@@ -990,5 +990,55 @@
       "rolloutLimit": "New client requires subscriptionType; use matching client and Worker and refresh open pages after rollback",
       "documentationFollowup": "Receipt-only PR after publication does not redeploy Sites or move the immutable v1.0.0 tag; query GitHub for its eventual commit instead of self-reference"
     }
+  },
+  "trackingConsentIteration": {
+    "authorizedOn": "2026-10-14",
+    "phase": "local-candidate",
+    "baseMain": "983a21cf579eb11176bd307fc9016286f6ef9780",
+    "notes": "docs/iterations/2026-10-14-brevo-tracking-consent.md",
+    "recipientParameter": {
+      "contactPixelTrackingConsent": false
+    },
+    "coverage": [
+      "confirmation",
+      "weekly",
+      "public",
+      "owner-test",
+      "zh",
+      "en"
+    ],
+    "providerAccountSetting": "pending verification after browser login connection failure",
+    "completePixelAndLinkRemovalVerified": false,
+    "realMailSent": false,
+    "newTagCreated": false,
+    "schemaChanged": false,
+    "dnsChanged": false,
+    "productionMailGatesChanged": false,
+    "schedulesChanged": false,
+    "validation": {
+      "newsAndMail": 69,
+      "mockProviderOnly": true,
+      "baseTests": 35,
+      "subscriptionUi": 12,
+      "localHttp": 8,
+      "total": 124,
+      "typescript": "passed",
+      "lint": "passed with 2 existing warnings",
+      "audit": {
+        "moderate": 8,
+        "high": 0,
+        "critical": 0
+      },
+      "content": "passed",
+      "build": "passed",
+      "bundle": {
+        "javascriptBytes": 919926,
+        "javascriptGzipBytes": 267601,
+        "cssBytes": 116185,
+        "cssGzipBytes": 23035,
+        "budgetsPreserved": true
+      },
+      "browser": "Local zh/en subscription and privacy; 390x844 en subscription no horizontal overflow; mail disabled"
+    }
   }
 }
