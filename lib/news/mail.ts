@@ -580,7 +580,8 @@ async function deliverQueued(
         headers: { "api-key": c.apiKey, "Content-Type": "application/json" },
         body: JSON.stringify({
           sender: { name: "AG-UI.AI", email: c.sender },
-          to: [{ email: d.email }],
+          // Recipient-level opt-out applies to public and owner-test mail alike.
+          to: [{ email: d.email, contactPixelTrackingConsent: false }],
           subject,
           htmlContent: html,
           textContent: text,

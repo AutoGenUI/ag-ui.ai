@@ -515,6 +515,53 @@ test('a public re-opt-in epoch is newer than old delivery timestamps even within
     });
   }
 });
+test('all public and acceptance emails opt out of Brevo tracking while retaining delivery correlation',async(t)=>{
+  t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-10-13T01:00:00.000Z')});
+  for(const locale of ['zh','en']) for(const isTest of [false,true]) await t.test(`${locale} ${isTest?'acceptance':'public'} confirmation and weekly`,async()=>{
+    const db=database();await seedDatabase(db);
+    const recipient=isTest?acceptance.testRecipient:`tracking-optout-${locale}@example.test`;
+    const runId=`tracking-optout-${locale}`,topics=['model','product','protocol','framework','research','case-study'];
+    await mockedMail(async sent=>{
+      if(isTest) assert.equal((await mailTest(db,{action:'confirmation',runId,locale,topics},acceptance)).submitted,1);
+      else assert.equal((await subscribe(db,publicInput(recipient,{locale,topics}),active,runId)).status,'check-inbox');
+      assert.equal(sent.length,1);
+      const confirmation=await db.prepare("SELECT * FROM deliveries WHERE kind='confirmation'").first();
+      assert.equal(confirmation.status,'submitted');
+      assert.equal(confirmation.is_test,Number(isTest));
+      assert.equal(sent[0].headers['X-Mailin-custom'],`delivery:${confirmation.id}`);
+      // Submission and tracking callbacks are not evidence of final delivery.
+      for(const event of ['opened','click']) await mailWebhook(db,{event,email:recipient,'X-Mailin-custom':sent[0].headers['X-Mailin-custom']});
+      assert.deepEqual(await db.prepare('SELECT * FROM deliveries WHERE id=?').bind(confirmation.id).first(),confirmation);
+      await mailWebhook(db,{event:'delivered',email:recipient,'X-Mailin-custom':sent[0].headers['X-Mailin-custom']});
+      assert.equal((await db.prepare('SELECT status FROM deliveries WHERE id=?').bind(confirmation.id).first()).status,'delivered');
+      assert.equal((await confirmFromMail(db,sent[0])).status,'confirmed');
+      if(isTest) assert.equal((await mailTest(db,{action:'weekly',runId},acceptance)).submitted,1);
+      else {
+        assert.equal((await queueDigest(db,'2026-10-12')).queued,1);
+        assert.equal((await drainQueue(db,active)).submitted,1);
+      }
+      assert.equal(sent.length,2);
+      for(const mail of sent) {
+        assert.deepEqual(mail.to,[{email:recipient,contactPixelTrackingConsent:false}]);
+        assert.equal(Object.hasOwn(mail,'contactPixelTrackingConsent'),false);
+        assert.match(mail.htmlContent,new RegExp(`/${locale}/subscribe\\?`));
+        assert.ok(mail.textContent.length>0);
+      }
+      const weekly=await db.prepare("SELECT * FROM deliveries WHERE kind='weekly'").first();
+      assert.equal(weekly.status,'submitted');assert.equal(weekly.is_test,Number(isTest));
+      assert.equal(sent[1].headers['X-Mailin-custom'],`delivery:${weekly.id}`);
+      assert.notEqual(sent[1].headers['X-Mailin-custom'],sent[0].headers['X-Mailin-custom']);
+      await mailWebhook(db,{event:'delivered',email:recipient,'message-id':weekly.provider_id});
+      assert.equal((await db.prepare('SELECT status FROM deliveries WHERE id=?').bind(weekly.id).first()).status,'delivered');
+      await mailWebhook(db,{event:'hardBounce',email:recipient,'X-Mailin-custom':sent[1].headers['X-Mailin-custom']});
+      assert.equal((await db.prepare('SELECT status FROM deliveries WHERE id=?').bind(weekly.id).first()).status,'failed');
+      assert.equal((await db.prepare('SELECT status FROM subscribers').first()).status,'suppressed');
+      if(isTest) assert.equal((await mailTest(db,{action:'weekly',runId},acceptance)).status,'recipient-suppressed');
+      else assert.equal((await drainQueue(db,active)).submitted,0);
+      assert.equal(sent.length,2);assert.equal((await db.prepare('SELECT count FROM mail_quota').first()).count,2);
+    },count=>Response.json({messageId:`fixture-no-tracking-${count}`}));
+  });
+});
 test('confirmation and weekly emails offer matching escaped HTML and plain-text original URLs in both languages',async()=>{
   for(const locale of ['zh','en']) {
     const db=database(),item=structuredClone(seed[0]);
@@ -537,7 +584,7 @@ test('confirmation and weekly emails offer matching escaped HTML and plain-text 
           assert.equal([...mail.htmlContent.matchAll(/href="([^"]+)"/g)].some(match=>decodeHtml(match[1])===url),true);
         }
         assert.match(mail.htmlContent,locale==='zh'?/复制此网址/:/copy this URL/);
-        assert.match(mail.textContent,locale==='zh'?/仍可能经 Brevo 跟踪/:/may still pass through Brevo tracking/);
+        assert.match(mail.textContent,locale==='zh'?/本站要求关闭打开与点击跟踪；像素与链接改写是否完全移除仍待验证/:/We request no open\/click tracking; complete pixel\/link removal remains unverified/);
       }
       assert.match(sent[1].htmlContent,/Fixture &lt;unsafe&gt; &amp; &quot;quoted&quot;/);
       assert.doesNotMatch(sent[1].htmlContent,/<script>|<unsafe>/);
@@ -1185,7 +1232,7 @@ test('owner acceptance reuses signed links and real content, isolates production
     assert.equal((await mailTest(db,weekly,acceptance)).submitted,0);
     assert.equal(sent.length,2); assert.match(sent[1].subject,/Acceptance test/);
     assert.match(sent[1].htmlContent,/\/en\/news\//);
-    for(const mail of sent) assert.deepEqual(mail.to,[{email:acceptance.testRecipient}]);
+    for(const mail of sent) assert.deepEqual(mail.to,[{email:acceptance.testRecipient,contactPixelTrackingConsent:false}]);
     await mailWebhook(db,{event:'delivered',email:acceptance.testRecipient,'message-id':'test-provider-2'});
     assert.equal((await db.prepare("SELECT status FROM deliveries WHERE is_test=1 AND kind='weekly'").first()).status,'delivered');
     assert.equal((await queueDigest(db,'2026-10-05')).queued,0);

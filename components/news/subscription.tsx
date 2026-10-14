@@ -296,7 +296,7 @@ function SubscriptionView({ locale, initialLink, onManagementUrl }: {
         })()}
         {form}
         {manage && !confirmationMode && (subscriber?.status === "confirmed" || subscriber?.status === "pending") && <section id="unsubscribe" className="n-subscription-form n-subscription-unsubscribe-area" aria-label={zh ? "结束邮件订阅" : "Stop email updates"}><div><h3>{zh ? "取消邮件订阅" : "Cancel email updates"}</h3><p>{zh ? "停止后续邮件；仍可使用 RSS。" : "Stop future email. RSS remains available."}</p></div><button type="button" className="n-subscription-secondary n-subscription-unsubscribe-button" disabled={formLocked} onClick={() => void submit("unsubscribe")}>{busy === "unsubscribe" ? zh ? "正在退订…" : "Unsubscribing…" : subscriber.status === "pending" ? zh ? "取消订阅申请" : "Cancel subscription request" : zh ? "退订所有邮件" : "Unsubscribe from all email"}</button></section>}
-        <p className="n-small n-subscription-disclosure">{zh ? "邮件由 Brevo 投递。当前匿名打开与点击统计不关联具体联系人，但仍可能包含像素与链接跟踪；本站不依据这些统计决定发信或判断已读。" : "Brevo delivers email. Anonymous opens/clicks are not tied to contacts; tracking pixels and links may remain. These statistics do not determine sending or prove reading."}</p>
+        <p className="n-small n-subscription-disclosure">{zh ? "邮件由 Brevo 投递。本站要求关闭打开与点击跟踪，不以此判断已读或决定发信；像素与链接改写是否完全移除仍待验证。" : "Brevo delivers email. We request no open/click tracking and do not use it to decide sending or prove reading. Complete pixel/link removal remains unverified."}</p>
       </div>
       <aside className="n-subscription-sidebar" aria-label={zh ? "RSS 阅读方式" : "Read with RSS"}>
         <section className="n-rss-box">

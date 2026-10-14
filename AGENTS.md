@@ -80,3 +80,9 @@ current state rather than treating a dated snapshot as a permanent fact.
   not show the check-inbox notice. Owner mail-test diagnose is read-only and
   exact-configured-target scoped, never part of editorial schedules. No private
   identifiers or individual delivery records go into public documentation.
+
+- Every Brevo `to` recipient carries `contactPixelTrackingConsent: false` for
+  public and owner-test confirmation/digest mail. Preserve it if adding cc/bcc;
+  never retry by removing the flag. Account-side per-contact consent enablement
+  is a separate prerequisite; final pixel/link removal needs real-mail evidence.
+  See docs/iterations/2026-10-14-brevo-tracking-consent.md for current verification.

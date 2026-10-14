@@ -10,4 +10,4 @@ Sources include official blogs, specifications, release repositories, original r
 
 The older GitHub ecosystem watcher remains a supplementary source-drift issue reporter. Dynamic editorial operations are documented in public/automation.md and use owner-authorized MCP tools backed by D1. Reading a public Site grants no write, mail or subscriber-data permissions.
 
-Email stays pending activation until Brevo free account/domain and real delivery acceptance pass. No new paid services or model APIs. No automatic upgrades, empty digests, tracking pixels or silent retry of uncertain submissions.
+Public email activation is recorded in the v12 and v1.0.1 release records; preserve current production gates. Every Brevo recipient explicitly requests no open/click tracking with `contactPixelTrackingConsent: false`. Account-side enablement and complete removal of provider pixels/rewritten links require separate verification; keep bilingual disclosures accurate. Our templates add no tracking resources. No new paid services or model APIs, automatic upgrades, empty digests or silent retry of uncertain submissions.
